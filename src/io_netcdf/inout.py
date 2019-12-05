@@ -33,6 +33,7 @@ def read_wrf_files_names(input_folder, start_date, end_date):
             all_files = os.listdir(join(input_folder, str(cur_year), str(cur_month)))
             # Get all domain files (we have two domains now)
             all_domain_files = [x for x in all_files if file_re.match(x) != None]
+            all_domain_files.sort()
             # print(all_domain_files)
             # Verify the files are withing the desired dates
             for curr_file in all_domain_files:
