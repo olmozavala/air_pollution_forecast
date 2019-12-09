@@ -2,7 +2,7 @@ from conf.UserConfiguration import getPreprocDBParams
 from conf.params import DBToCSVParams
 from db.sqlCont import getPostgresConn
 from db.queries import *
-from conf.constants import constants
+from conf.localConstants import constants
 from os.path import join
 import os
 import numpy as np

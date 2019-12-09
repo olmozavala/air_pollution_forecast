@@ -1,8 +1,8 @@
 from conf.UserConfiguration import getPreprocWRFParams
 from conf.params import PreprocParams
-from preproc.wrf import crop_variables_xr, subsampleData
-from preproc.utils import getStringDates
-from conf.constants import constants
+from local_preproc.wrf import crop_variables_xr, subsampleData
+from local_preproc.utils import getStringDates
+from conf.localConstants import constants
 import os
 import xarray as xr
 # from img_viz.eoa_viz import EOAImageVisualizer
@@ -79,7 +79,7 @@ def main():
 
             try:
                 saveFlattenedVariables(subsampled_xr_ds, variable_names, output_folder_final,
-                                       file_name=F"{all_dates[file_idx].strftime('%Y-%m-%d')}.csv",
+                                       file_name=F"{all_dates[file_idx].strftime(constants.date_format.value)}.csv",
                                        index_names=getStringDates(all_dates[file_idx], times),
                                        index_label=constants.index_label.value)
             except Exception as e:

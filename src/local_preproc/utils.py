@@ -31,6 +31,7 @@ def getStringDates(start_date, num_hours, date_format="%Y_%m_%d %H:%M:%S"):
     str_dates = [(start_date + timedelta(hours=i)).strftime(date_format) for i in num_hours]
     return str_dates
 
+
 # Test
 if __name__== '__main__':
     # print(getEvenIndexForSplit(114,33))

@@ -19,7 +19,18 @@ class DBToCSVParams(Enum):
     output_imgs_folder = 3  # Where to output temporal images
     display_imgs = 4  # Bool, indicates if the images should be displayed
     start_date = 5  # Start date that is used fo filter the files being used
-    end_date = 6  # Start date that is used fo filter the files being used
+    end_date = 6  # End date that is used fo filter the files being used
     num_hours = 7  # Integer indicating how many continuous times we need
     stations = 8  # List of stations to process
 
+class MergeFilesParams(Enum):
+    output_folder = 1
+
+class LocalTrainingParams(Enum):
+    pollutant = 1
+    station = 2
+    start_date = 5  # Start date that is used fo filter the files being used
+    end_date = 6  # End date that is used fo filter the files being used
+    forecasted_hours = 7  # Which hour we want to forecaste
+    tot_num_quadrants = 8  # How many quadrants are we using for the weather data
+    num_hours_in_netcdf = 9  # How many hours were stored in the netcdf file

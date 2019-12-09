@@ -1,6 +1,6 @@
 import numpy as np
 import xarray as xr
-from preproc.utils import getEvenIndexForSplit
+from local_preproc.utils import getEvenIndexForSplit
 
 
 def crop_variables_xr(xr_ds, variables, bbox, times):

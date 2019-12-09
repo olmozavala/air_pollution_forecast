@@ -1,20 +1,22 @@
 from conf.params import PreprocParams
 from conf.params import DBToCSVParams
+from conf.localConstants import constants
 from os.path import join
 
 from db.names import *
 
+output_folder = '/data/UNAM/Air_Pollution_Forecast/Data'
+# output_folder = '/home/olmozavala/REMOTE_PROJECTS/OUTPUT'
+
 def getPreprocWRFParams():
 
-    output_folder = '/data/UNAM/WRF_CSV_TEMP'
-    # output_folder = '/home/olmozavala/REMOTE_PROJECTS/OUTPUT'
 
     make_csv_config= {
         PreprocParams.variables: ['U10', 'V10', 'RAINC', 'T2', 'TH2', 'RAINNC', 'PBLH', 'SWDOWN', 'GLW'],
         # Donde se guardan los csv
         # PreprocParams.input_folder: '/data/UNAM/WRF_Kraken/',
         PreprocParams.input_folder: '/ServerData/Pronosticos/Salidas/WRF_Kraken',
-        PreprocParams.output_folder: join(output_folder, 'DataCSV'),
+        PreprocParams.output_folder: join(output_folder, constants.wrf_output_folder.value),
         PreprocParams.output_imgs_folder: join(output_folder, 'imgs'), # Path to save temporal images (netcdfs preprocessing)
         PreprocParams.display_imgs: True,  # Boolean that indicates if we want to save the images
         # How to subsample the data
@@ -44,9 +46,6 @@ def getPreprocWRFParams():
 
 def getPreprocDBParams():
 
-    output_folder = '/data/UNAM/'
-    # output_folder = '/home/olmozavala/REMOTE_PROJECTS/OUTPUT'
-
     make_csv_config= {
         # DBToCSVParams.tables: [getTables()[0]],
         DBToCSVParams.tables: getTables(),
@@ -57,7 +56,7 @@ def getPreprocDBParams():
               ,"SHA", "SJA", "SNT", "SUR", "TAC", "TAH", "TAX", "TEC", "TLA", "TLI", "TPN", "UAX", "UIZ", "UNM", "VAL", "VIF", "XAL"
               ,"XCH"],
         # Donde se guardan los csv
-        DBToCSVParams.output_folder: join(output_folder, 'DataDB_CSV'),
+        DBToCSVParams.output_folder: join(output_folder, constants.db_output_folder.value),
         DBToCSVParams.output_imgs_folder: join(output_folder, 'imgs'), # Path to save temporal images (netcdfs preprocessing)
         DBToCSVParams.display_imgs: True,  # Boolean that indicates if we want to save the images
         DBToCSVParams.num_hours: 72,
@@ -69,3 +68,4 @@ def getPreprocDBParams():
     }
 
     return make_csv_config
+

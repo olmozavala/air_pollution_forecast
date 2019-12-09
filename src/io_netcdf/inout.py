@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from conf.localConstants import constants
 from os.path import join
 import numpy as np
 import pandas as pd
@@ -14,8 +15,8 @@ def read_wrf_files_names(input_folder, start_date, end_date):
     :param pathNetCDF: address where the xr_ds files are located
     :type pathNetCDF: String
     """
-    start_date = datetime.strptime(start_date, '%Y-%m-%d')
-    end_date = datetime.strptime(end_date, '%Y-%m-%d')
+    start_date = datetime.strptime(start_date, constants.date_format.value)
+    end_date = datetime.strptime(end_date, constants.date_format.value)
     input_folder
     name_pattern = 'wrfout_d02_\d\d\d\d-\d\d-\d\d_00.nc'
     date_pattern = '\d\d\d\d-\d\d-\d\d'
