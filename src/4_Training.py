@@ -1,35 +1,24 @@
+from constants.AI_params import TrainingParams, ModelParams
+
 from img_viz.eoa_viz import EOAImageVisualizer
-
 from conf.localConstants import constants
-
 from conf.TrainingUserConfiguration import getTrainingParams
-from conf.params import LocalTrainingParams
 from preproc.constants import NormParams
-
-from training.utils import getQuadrantsAsString
-from AI.data_generation.Generators3D import *
-from datetime import date, datetime, timedelta
-import os
-import matplotlib.pyplot as plt
-
 from inout.io_common import create_folder
+from conf.params import LocalTrainingParams
+import trainingutils as utilsNN
+from models.modelSelector import select_1d_model
 
+from datetime import date, datetime, timedelta
+import tensorflow as tf
+from tensorflow.keras.utils import plot_model
+import numpy as np
 import pandas as pd
 from pandas import DataFrame
 from sklearn import preprocessing
+from os.path import join
 
-from conf.AI_params import *
-import AI.trainingutils as utilsNN
-import AI.models.modelBuilder3D as model_builder
-from AI.models.modelSelector import select_1d_model
-
-import tensorflow as tf
-from tensorflow.keras.utils import plot_model
-from tensorflow.keras import Model
-
-# gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.8)
-# sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
-
+tf.config.experimental.VirtualDeviceConfiguration(memory_limit=12288)
 
 def main():
     config = getTrainingParams()
@@ -60,14 +49,7 @@ def trainModel(config, cur_pollutant, cur_station):
     epochs = config[TrainingParams.epochs]
     model_name_user = config[TrainingParams.config_name]
     optimizer = config[TrainingParams.optimizer]
-    data_augmentation = config[TrainingParams.data_augmentation]
-    start_date = config[LocalTrainingParams.start_date]
-    end_date = config[LocalTrainingParams.end_date]
     forecasted_hours = config[LocalTrainingParams.forecasted_hours]
-    num_quadrants = config[LocalTrainingParams.tot_num_quadrants]
-    num_hours_in_netcdf  = config[LocalTrainingParams.num_hours_in_netcdf]
-
-    model_type = config[ModelParams.MODEL]
 
     split_info_folder = join(output_folder, 'Splits')
     parameters_folder = join(output_folder, 'Parameters')
@@ -78,11 +60,6 @@ def trainModel(config, cur_pollutant, cur_station):
     create_folder(parameters_folder)
     create_folder(weights_folder)
     create_folder(logs_folder)
-
-    WRF_data_folder_name = join(input_folder,constants.wrf_output_folder.value,
-                                F"{constants.wrf_each_quadrant_name.value}_{getQuadrantsAsString(num_quadrants)}")
-
-    append_meteo_colums = True  # It is used to append the meteo variable columns into the database
 
     viz_obj = EOAImageVisualizer(output_folder=imgs_folder, disp_images=False)
 
@@ -98,7 +75,6 @@ def trainModel(config, cur_pollutant, cur_station):
     print("Normalizing data....")
     datetimes_str = data.index.values
     datetimes = np.array([datetime.strptime(x, constants.datetime_format.value) for x in datetimes_str])
-    dates = np.array([cur_datetime.date() for cur_datetime in datetimes])
 
     scaler = preprocessing.MinMaxScaler()
     scaler = scaler.fit(data)
@@ -144,13 +120,18 @@ def trainModel(config, cur_pollutant, cur_station):
     plot_model(model, to_file=join(output_folder, F'{model_name}.png'), show_shapes=True)
 
     print("Saving split information...")
-    file_name_splits = join(split_info_folder, F'{model_name}.txt')
-    utilsNN.save_splits(file_name=file_name_splits, folders_to_read=rows_to_read,
-                        train_idx=train_ids, val_idx=val_ids, test_idx=test_ids)
+    file_name_splits = join(split_info_folder, F'{model_name}.csv')
+    info_splits = DataFrame({F'Train({len(train_ids)})': train_ids})
+    info_splits[F'Validation({len(val_ids)})'] = 0
+    info_splits[F'Validation({len(val_ids)})'][0:len(val_ids)] = val_ids
+    info_splits[F'Test({len(test_ids)})'] = 0
+    info_splits[F'Test({len(test_ids)})'][0:len(test_ids)] = test_ids
+    info_splits.to_csv(file_name_splits, index=None)
 
     print(F"Norm params: {scaler.get_params()}")
     file_name_normparams = join(parameters_folder, F'{model_name}.txt')
     utilsNN.save_norm_params(file_name_normparams, NormParams.min_max, scaler)
+    info_splits.to_csv(file_name_splits, index=None)
 
     print("Getting callbacks ...")
 
@@ -182,6 +163,7 @@ def trainModel(config, cur_pollutant, cur_station):
     yy_plot = Y_df.iloc[start:end].values
     viz_obj.plot_1d_data_np(x_plot, [y_plot, yy_plot], title=F"{cur_pollutant}_{cur_station}",
                             labels=['Current', 'Desired'],
+                            wide_ratio=4,
                             file_name_prefix=F"{cur_pollutant}_{cur_station}")
 
     model.fit(x_train, y_train,

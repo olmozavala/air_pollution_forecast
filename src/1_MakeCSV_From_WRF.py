@@ -1,7 +1,7 @@
 from conf.UserConfiguration import getPreprocWRFParams
 from conf.params import PreprocParams
-from local_preproc.wrf import crop_variables_xr, subsampleData
-from local_preproc.utils import getStringDates
+from proj_preproc.wrf import crop_variables_xr, subsampleData
+from proj_preproc.utils import getStringDates
 from conf.localConstants import constants
 import os
 import xarray as xr

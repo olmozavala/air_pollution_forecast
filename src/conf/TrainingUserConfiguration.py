@@ -6,8 +6,7 @@ import tensorflow.keras.losses as losses
 from os.path import join
 import os
 
-# from constants.AI_params import *
-from conf.AI_params import *
+from constants.AI_params import ModelParams, AiModels, TrainingParams, ClassificationParams, ClassificationMetrics
 
 output_folder = '/data/UNAM/Air_Pollution_Forecast/Data'
 # output_folder = '/home/olmozavala/REMOTE_PROJECTS/OUTPUT'
@@ -15,13 +14,12 @@ output_folder = '/data/UNAM/Air_Pollution_Forecast/Data'
 # =================================== TRAINING ===================================
 # ----------------------------- UM -----------------------------------
 _run_name = F'Relu_Sigmoid'  # Name of the model, for training and classification
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # Decide which GPU to use to execute the code
 
 def append_model_params(cur_config):
     model_config = {
         ModelParams.MODEL: AiModels.ML_PERCEPTRON,
-        ModelParams.DROPOUT: False,
-        ModelParams.BATCH_NORMALIZATION: False,
+        ModelParams.DROPOUT: True,
+        ModelParams.BATCH_NORMALIZATION: True,
         ModelParams.HIDDEN_LAYERS: 3,
         ModelParams.CELLS_PER_HIDDEN_LAYER: [300, 200, 100],
         ModelParams.NUMBER_OF_OUTPUT_CLASSES: 1,
@@ -42,16 +40,13 @@ def getTrainingParams():
         TrainingParams.epochs: 5000,
         TrainingParams.config_name: _run_name,
         TrainingParams.data_augmentation: False,
-        LocalTrainingParams.station: "MER",
+        LocalTrainingParams.station: "AJU",
         # LocalTrainingParams.station: ["ACO", "AJM", "AJU", "ARA", "ATI", "AZC", "BJU", "CAM", "CCA", "CES", "CFE", "CHO", "COR", "COY", "CUA"
         #  ,"CUI", "CUT", "DIC", "EAJ", "EDL", "FAC", "FAN", "GAM", "HAN", "HGM", "IBM", "IMP", "INN", "IZT", "LAA", "LAG", "LLA"
         #  ,"LOM", "LPR", "LVI", "MCM", "MER", "MGH", "MIN", "MON", "MPA", "NET", "NEZ", "PED", "PER", "PLA", "POT", "SAG", "SFE"
         #  ,"SHA", "SJA", "SNT", "SUR", "TAC", "TAH", "TAX", "TEC", "TLA", "TLI", "TPN", "UAX", "UIZ", "UNM", "VAL", "VIF", "XAL"
         #  , "XCH"],
-        # LocalTrainingParams.pollutant: [F"cont_{x}" for x in ["otres"]],
         LocalTrainingParams.pollutant: "cont_otres",
-        LocalTrainingParams.start_date: '2017-01-01',
-        LocalTrainingParams.end_date: '2019-12-31',
         LocalTrainingParams.forecasted_hours: 24,
         LocalTrainingParams.tot_num_quadrants: 16,  # 4x4
         LocalTrainingParams.num_hours_in_netcdf: 72
@@ -60,24 +55,20 @@ def getTrainingParams():
 
 def getMergeParams():
     # We are using the same parameter as the
-    cur_config = getTrainingParams()
-    cur_config[MergeFilesParams.output_folder] = join(output_folder, constants.merge_output_folder.value)
-    return cur_config
+    cur_config = {
+        MergeFilesParams.input_folder: output_folder,
+        MergeFilesParams.output_folder: F"{join(output_folder, constants.merge_output_folder.value)}",
+        # MergeFilesParams.stations: ["ACO", "AJM"],
+        MergeFilesParams.stations: ["ACO", "AJM", "AJU", "ARA", "ATI", "AZC", "BJU", "CAM", "CCA", "CES", "CFE", "CHO", "COR", "COY", "CUA"
+          ,"CUI", "CUT", "DIC", "EAJ", "EDL", "FAC", "FAN", "GAM", "HAN", "HGM", "IBM", "IMP", "INN", "IZT", "LAA", "LAG", "LLA"
+          ,"LOM", "LPR", "LVI", "MCM", "MER", "MGH", "MIN", "MON", "MPA", "NET", "NEZ", "PED", "PER", "PLA", "POT", "SAG", "SFE"
+          ,"SHA", "SJA", "SNT", "SUR", "TAC", "TAH", "TAX", "TEC", "TLA", "TLI", "TPN", "UAX", "UIZ", "UNM", "VAL", "VIF", "XAL"
+          , "XCH"],
+        MergeFilesParams.pollutant_tables: ["cont_otres"],
+        MergeFilesParams.forecasted_hours: 24,
+        LocalTrainingParams.tot_num_quadrants: 16,
+        LocalTrainingParams.num_hours_in_netcdf: 72,
+        MergeFilesParams.output_folder: join(output_folder, constants.merge_output_folder.value)
+    }
 
-# def get_usemodel_1d_config():
-#     models_folder = '/home/olmozavala/Dropbox/MyProjects/COAPS/ML_windstress/output/Training/models'
-#     model_file = 'Relu_Relu_2019_10_14_18_31-262-0.00094.hdf5'
-#     cur_config = {
-#         ClassificationParams.training_data_file: join(_data_folder, "SWS2forML_nowave.csv"),
-#         ClassificationParams.input_folder: _data_folder,
-#         ClassificationParams.output_folder: F"{join(output_folder, 'Results')}",
-#         ClassificationParams.model_weights_file: join(models_folder, model_file),
-#         ClassificationParams.output_file_name: 'Results.csv',
-#         ClassificationParams.input_file: 'zFAST_hr.csv',
-#         ClassificationParams.output_imgs_folder: F"{join(output_folder, 'Results')}",
-#         ClassificationParams.show_imgs: True,
-#         ClassificationParams.save_prediction: True,
-#         ClassificationParams.metrics: [ClassificationMetrics.MSE],
-#         TrainingParams.config_name: _run_name,
-#     }
-#     return append_model_params(cu
+    return cur_config

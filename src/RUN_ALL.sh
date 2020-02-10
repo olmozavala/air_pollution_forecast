@@ -1,10 +1,10 @@
 #!/bin/bash
 
-
+# READ!!!!!!! You may have to run the exports manually, not sure what is not working automatically
 OZ_LIB="/home/olmozavala/Dropbox/MyProjects/OZ_LIB"
-export PYTHONPATH="${PYTHONPATH}:/home/olmozavala/Dropbox/MyProjects/OZ_LIB/AI_Template/"
+export PYTHONPATH="${PYTHONPATH}:$OZ_LIB/AI_Common/"
 export PYTHONPATH="${PYTHONPATH}:$OZ_LIB/image_visualization/"
-#export PYTHONPATH="${PYTHONPATH}:$OZ_LIB/image_preprocessing/"
+echo $PYTHONPATH
 
 MAIN_CONFIG='/home/olmozavala/Dropbox/MyProjects/UNAM/PollutionMexicCity/PollutionForecastOZ/src/conf'
 SRC_PATH='/home/olmozavala/Dropbox/MyProjects/UNAM/PollutionMexicCity/PollutionForecastOZ/src'
@@ -14,8 +14,6 @@ SRC_PATH='/home/olmozavala/Dropbox/MyProjects/UNAM/PollutionMexicCity/PollutionF
 #         ,"LOM", "LPR", "LVI", "MCM", "MER", "MGH", "MIN", "MON", "MPA", "NET", "NEZ", "PED", "PER", "PLA", "POT", "SAG", "SFE"
 #         ,"SHA", "SJA", "SNT", "SUR", "TAC", "TAH", "TAX", "TEC", "TLA", "TLI", "TPN", "UAX", "UIZ", "UNM", "VAL", "VIF", "XAL"
 #         , "XCH"]
-
-
 
 for station in ACO AJM AJU ARA ATI AZC BJU CAM CCA CES CFE CHO COR COY CUA CUI CUT DIC EAJ EDL FAC FAN GAM HAN HGM IBM IMP INN IZT \
 LAA LAG LLA LOM LPR LVI MCM MER MGH MIN MON MPA NET NEZ PED PER PLA POT SAG SFE SHA SJA SNT SUR TAC TAH TAX TEC TLA TLI \

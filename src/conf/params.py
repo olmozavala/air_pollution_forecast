@@ -24,7 +24,11 @@ class DBToCSVParams(Enum):
     stations = 8  # List of stations to process
 
 class MergeFilesParams(Enum):
+    input_folder = 2
     output_folder = 1
+    stations = 4
+    pollutant_tables = 5
+    forecasted_hours = 6
 
 class LocalTrainingParams(Enum):
     pollutant = 1
