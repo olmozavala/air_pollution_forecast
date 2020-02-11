@@ -2,20 +2,21 @@ from constants.AI_params import TrainingParams, ModelParams
 
 from conf.localConstants import constants
 from conf.TrainingUserConfiguration import getTrainingParams
-from preproc.constants import NormParams
 from inout.io_common import create_folder
 from conf.params import LocalTrainingParams
+from proj_preproc.preproc import normalizeAndFilterData
 import trainingutils as utilsNN
 from models.modelSelector import select_1d_model
 
-from datetime import date, datetime, timedelta
+from datetime import datetime
 import tensorflow as tf
 from tensorflow.keras.utils import plot_model
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
-from sklearn import preprocessing
 from os.path import join
+
+
 
 tf.config.experimental.VirtualDeviceConfiguration(memory_limit=12288)
 
@@ -52,48 +53,13 @@ def main():
     print(F"============ Reading data for: {pollutant} -- AllStations ==========================")
     db_file_name = join(input_folder, constants.merge_output_folder.value, F"{pollutant}_AllStations.csv")
     data = pd.read_csv(db_file_name, index_col=0)
-
     config[ModelParams.INPUT_SIZE] = len(data.columns)
     print(F'Data shape: {data.shape} Data axes {data.axes}')
     print("Done!")
-
-    # Predicting for the next value after 24hrs (only one)
-    print("Normalizing data....")
     datetimes_str = data.index.values
-    datetimes = np.array([datetime.strptime(x, constants.datetime_format.value) for x in datetimes_str])
 
-    stations_columns = [x for x in data.columns.values if x.find('h') == -1]
-    meteo_columns = [x for x in data.columns.values if x.find('h') != -1]
-
-    scaler = preprocessing.MinMaxScaler()
-    # Normalizing meteorological variables
-    min_values_meteo = data[meteo_columns].min()
-    max_values_meteo = data[meteo_columns].max()
-    # Manually setting the min/max values for the pollutant (ozone)
-    min_values_pol = 0
-    max_values_pol = 150
-
-    data_norm_df = data.copy()
-    data_norm_df[meteo_columns] = (data_norm_df[meteo_columns] - min_values_meteo)/(max_values_meteo - min_values_meteo)
-    data_norm_df[stations_columns] = (data_norm_df[stations_columns] - min_values_pol)/(max_values_pol - min_values_pol)
-    print(F'Done!')
-
-    # Filtering only dates where there is data "forecasted hours after" (24 hrs after)
-    print(F"\tBuilding X and Y ....")
-    accepted_times_idx = []
-    y_times_idx = []
-    for i, c_datetime in enumerate(datetimes):
-        forecasted_datetime = (c_datetime + timedelta(hours=forecasted_hours))
-        if forecasted_datetime in datetimes:
-            accepted_times_idx.append(i)
-            y_times_idx.append(np.argwhere(forecasted_datetime == datetimes)[0][0])
-
-    # Replacing nan columns with the mean value of all the other columns
-    mean_values = data_norm_df[stations_columns].mean(1)
-
-    data_norm_df_final = data_norm_df.copy()
-    for cur_station in stations_columns:
-        data_norm_df_final[cur_station] = data_norm_df[cur_station].fillna(mean_values)
+    data_norm_df_final, accepted_times_idx, y_times_idx, stations_columns, meteo_columns =\
+        normalizeAndFilterData(data, datetimes_str, forecasted_hours)
 
     X_df = data_norm_df_final.loc[datetimes_str[accepted_times_idx]]
     Y_df = data_norm_df_final.loc[datetimes_str[y_times_idx]][stations_columns]
@@ -122,19 +88,8 @@ def main():
     model = select_1d_model(config)
     plot_model(model, to_file=join(output_folder, F'{model_name}.png'), show_shapes=True)
 
-    print("Saving split information...")
     file_name_splits = join(split_info_folder, F'{model_name}.csv')
-    info_splits = DataFrame({F'Train({len(train_ids)})': train_ids})
-    info_splits[F'Validation({len(val_ids)})'] = 0
-    info_splits[F'Validation({len(val_ids)})'][0:len(val_ids)] = val_ids
-    info_splits[F'Test({len(test_ids)})'] = 0
-    info_splits[F'Test({len(test_ids)})'][0:len(test_ids)] = test_ids
-    info_splits.to_csv(file_name_splits, index=None)
-
-    print(F"Norm params: {scaler.get_params()}")
-    file_name_normparams = join(parameters_folder, F'{model_name}.txt')
-    # utilsNN.save_norm_params(file_name_normparams, NormParams.min_max, scaler)
-    info_splits.to_csv(file_name_splits, index=None)
+    utilsNN.save_splits(file_name_splits, train_ids, val_ids, test_ids)
 
     print("Getting callbacks ...")
 

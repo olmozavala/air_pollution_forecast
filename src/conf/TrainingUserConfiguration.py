@@ -4,11 +4,12 @@ from tensorflow.keras.optimizers import *
 import tensorflow.keras.metrics as metrics
 import tensorflow.keras.losses as losses
 from os.path import join
-import os
+from sklearn.metrics import *
 
 from constants.AI_params import ModelParams, AiModels, TrainingParams, ClassificationParams, ClassificationMetrics
 
 output_folder = '/data/UNAM/Air_Pollution_Forecast/Data'
+training_output_folder = '/data/UNAM/Air_Pollution_Forecast/Data/Training/'
 # output_folder = '/home/olmozavala/REMOTE_PROJECTS/OUTPUT'
 
 # =================================== TRAINING ===================================
@@ -73,20 +74,23 @@ def getMergeParams():
 
     return cur_config
 
-def get_usemodel_1d_config():
-    models_folder = '/data/UNAM/Air_Pollution_Forecast/Data/Training/models'
+def get_makeprediction_config():
+    
+    models_folder = join(training_output_folder, 'models')
+    splits_folder = join(training_output_folder, 'Splits')
     # model_file = 'Relu_Sigmoid_2020_02_10_19_35_cont_otres_AllStations-480-0.00447.hdf5'
     model_file = 'Adam_AllStations_300_300_200_100_2020_02_10_20_32_cont_otres_AllStations-553-0.00411.hdf5'
     cur_config = {
         ClassificationParams.input_file: join(output_folder, constants.merge_output_folder.value, 'cont_otres_AllStations.csv'),
         ClassificationParams.output_folder: F"{join(output_folder, 'Results')}",
         ClassificationParams.model_weights_file: join(models_folder, model_file),
-        ClassificationParams.output_file_name: 'Results.csv',
+        ClassificationParams.split_file: join(splits_folder, 'Adam_AllStations_300_300_200_100_2020_02_10_20_32_cont_otres_AllStations.csv'),
+        ClassificationParams.output_file_name: join(training_output_folder, 'Results', F'{_run_name}.csv'),
         ClassificationParams.output_imgs_folder: F"{join(output_folder, 'Results', _run_name)}",
         ClassificationParams.show_imgs: True,
         ClassificationParams.save_prediction: True,
         LocalTrainingParams.forecasted_hours: 24,
-        ClassificationParams.metrics: [ClassificationMetrics.MSE],
+        ClassificationParams.metrics: {'mse':mean_squared_error, 'mae':mean_absolute_error, 'r2':r2_score, 'ex_var':explained_variance_score},
         TrainingParams.config_name: _run_name,
     }
     return append_model_params(cur_config)

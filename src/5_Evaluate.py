@@ -12,7 +12,7 @@ from os.path import join
 from conf.params import LocalTrainingParams
 
 from img_viz.medical import MedicalImageVisualizer
-from conf.TrainingUserConfiguration import get_usemodel_1d_config
+from conf.TrainingUserConfiguration import get_makeprediction_config
 from inout.io_common import  create_folder
 from AI.data_generation.utilsDataFormat import *
 from AI.models.modelSelector import select_1d_model
@@ -20,7 +20,7 @@ from AI.metrics import numpy_dice
 from os import listdir
 
 def main():
-    config = get_usemodel_1d_config()
+    config = get_makeprediction_config()
     # *********** Reads the parameters ***********
 
     input_file = config[ClassificationParams.input_file]

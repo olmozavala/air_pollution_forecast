@@ -138,7 +138,7 @@ def display_figure_title(hoverData):
     Output('station-plot', 'figure'),
     [Input('id-map', 'clickData'),
      Input('calendar', 'date'),
-     Input('id-map', 'selectedData')])
+     Input('id-map', 'selectedData'))
 def display_figure_title(hoverData, cur_date, selectedData):
     if hoverData is None:
         selected_stations = [default_station]

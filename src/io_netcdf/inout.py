@@ -69,3 +69,4 @@ def saveFlattenedVariables(xr_ds, variable_names, output_folder, file_name, inde
 
     all_data.set_axis(index_names, inplace=True)
     all_data.to_csv(join(output_folder,file_name), index_label=index_label);
+
