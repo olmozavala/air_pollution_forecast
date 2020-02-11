@@ -60,3 +60,22 @@ def getMergeParams():
     cur_config = getTrainingParams()
     cur_config[MergeFilesParams.output_folder] = join(output_folder, constants.merge_output_folder.value)
     return cur_config
+
+
+def get_usemodel_1d_config():
+    models_folder = '/home/olmozavala/Dropbox/MyProjects/COAPS/ML_windstress/output/Training/models'
+    model_file = 'Relu_Relu_2019_10_14_18_31-262-0.00094.hdf5'
+    cur_config = {
+        ClassificationParams.training_data_file: join(_data_folder, "SWS2forML_nowave.csv"),
+        ClassificationParams.input_folder: _data_folder,
+        ClassificationParams.output_folder: F"{join(output_folder, 'Results')}",
+        ClassificationParams.model_weights_file: join(models_folder, model_file),
+        ClassificationParams.output_file_name: 'Results.csv',
+        ClassificationParams.input_file: 'zFAST_hr.csv',
+        ClassificationParams.output_imgs_folder: F"{join(output_folder, 'Results')}",
+        ClassificationParams.show_imgs: True,
+        ClassificationParams.save_prediction: True,
+        ClassificationParams.metrics: [ClassificationMetrics.MSE],
+        TrainingParams.config_name: _run_name,
+    }
+    return append_model_params(cur_config)

@@ -13,16 +13,16 @@ output_folder = '/data/UNAM/Air_Pollution_Forecast/Data'
 
 # =================================== TRAINING ===================================
 # ----------------------------- UM -----------------------------------
-_run_name = F'Relu_Sigmoid'  # Name of the model, for training and classification
+_run_name = F'Adam_AllStations_300_300_200_100'  # Name of the model, for training and classification
 
 def append_model_params(cur_config):
     model_config = {
         ModelParams.MODEL: AiModels.ML_PERCEPTRON,
         ModelParams.DROPOUT: True,
         ModelParams.BATCH_NORMALIZATION: True,
-        ModelParams.HIDDEN_LAYERS: 3,
-        ModelParams.CELLS_PER_HIDDEN_LAYER: [300, 200, 100],
-        ModelParams.NUMBER_OF_OUTPUT_CLASSES: 1,
+        ModelParams.HIDDEN_LAYERS: 4,
+        ModelParams.CELLS_PER_HIDDEN_LAYER: [300, 300, 200, 100],
+        ModelParams.NUMBER_OF_OUTPUT_CLASSES: 34,  # 34 stations
     }
     return {**cur_config, **model_config}
 
@@ -72,3 +72,21 @@ def getMergeParams():
     }
 
     return cur_config
+
+def get_usemodel_1d_config():
+    models_folder = '/data/UNAM/Air_Pollution_Forecast/Data/Training/models'
+    # model_file = 'Relu_Sigmoid_2020_02_10_19_35_cont_otres_AllStations-480-0.00447.hdf5'
+    model_file = 'Adam_AllStations_300_300_200_100_2020_02_10_20_32_cont_otres_AllStations-553-0.00411.hdf5'
+    cur_config = {
+        ClassificationParams.input_file: join(output_folder, constants.merge_output_folder.value, 'cont_otres_AllStations.csv'),
+        ClassificationParams.output_folder: F"{join(output_folder, 'Results')}",
+        ClassificationParams.model_weights_file: join(models_folder, model_file),
+        ClassificationParams.output_file_name: 'Results.csv',
+        ClassificationParams.output_imgs_folder: F"{join(output_folder, 'Results', _run_name)}",
+        ClassificationParams.show_imgs: True,
+        ClassificationParams.save_prediction: True,
+        LocalTrainingParams.forecasted_hours: 24,
+        ClassificationParams.metrics: [ClassificationMetrics.MSE],
+        TrainingParams.config_name: _run_name,
+    }
+    return append_model_params(cur_config)
