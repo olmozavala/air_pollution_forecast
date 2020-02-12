@@ -15,7 +15,7 @@ def getPreprocWRFParams():
         # Donde se guardan los csv
         PreprocParams.input_folder_new: '/data/UNAM/Air_Pollution_Forecast/Data/WRF_Kraken/new_model',
         # PreprocParams.input_folder_new: '/ServerData/Pronosticos/Salidas/WRF_Kraken',
-        PreprocParams.input_folder_old: '/data/UNAM/Air_Pollution_Forecast/Data/WRF_Kraken/old_model_v3',
+        PreprocParams.input_folder_old: '/data/UNAM/Air_Pollution_Forecast/Data/WRF_Kraken/old_model_v4',
         # PreprocParams.input_folder_old: '/ServerData/CHACMOOL',
         PreprocParams.output_folder: join(output_folder, constants.wrf_output_folder.value),
         PreprocParams.output_imgs_folder: join(output_folder, 'imgs'), # Path to save temporal images (netcdfs preprocessing)

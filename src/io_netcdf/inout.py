@@ -18,8 +18,8 @@ def read_wrf_old_files_names(input_folder, start_date, end_date):
     start_date = datetime.strptime(start_date, constants.date_format.value)
     end_date = datetime.strptime(end_date, constants.date_format.value)
     input_folder
-    # name_pattern = 'wrfout_c1h_d01_\d\d\d\d-\d\d-\d\d_00:00:00.a\d\d\d\d'
-    name_pattern = 'wrfout_c1h_d01_\d\d\d\d-\d\d-\d\d_00:00:00.\d\d\d\d'
+    name_pattern = 'wrfout_c1h_d01_\d\d\d\d-\d\d-\d\d_00:00:00.a\d\d\d\d'
+    # name_pattern = 'wrfout_c1h_d01_\d\d\d\d-\d\d-\d\d_00:00:00.\d\d\d\d'
     date_pattern = '\d\d\d\d-\d\d-\d\d'
     file_re = re.compile(name_pattern + '.*')
     date_re = re.compile(date_pattern)
@@ -30,8 +30,8 @@ def read_wrf_old_files_names(input_folder, start_date, end_date):
     result_dates = []
     # Iterate over the years
     for cur_year in range(start_date.year, end_date.year+1):
-        # all_files = os.listdir(join(input_folder, F"a{cur_year}", 'salidas'))
-        all_files = os.listdir(join(input_folder, F"a{cur_year}"))
+        all_files = os.listdir(join(input_folder, F"a{cur_year}", 'salidas'))
+        # all_files = os.listdir(join(input_folder, F"a{cur_year}"))
         # Get all domain files (we have two domains now)
         all_domain_files = [x for x in all_files if file_re.match(x) != None]
         all_domain_files.sort()
@@ -40,13 +40,13 @@ def read_wrf_old_files_names(input_folder, start_date, end_date):
         for curr_file in all_domain_files:
             dateNetCDF = datetime.strptime(date_re.findall(curr_file)[0], '%Y-%m-%d')
             if (dateNetCDF < end_date) & (dateNetCDF >= start_date):
-                # result_files_coords.append(join(input_folder,F"a{cur_year}", 'salidas',
-                #             F'wrfout_c15d_d01_{cur_year}-01-01_00:00:00.a{cur_year}'))  # always read the first of jan (assuming it exist)
-                result_files_coords.append(join(input_folder,F"a{cur_year}",
-                                                F'wrfout_c15d_d01_{cur_year}-01-01_00:00:00.{cur_year}'))  # always read the first of jan (assuming it exist)
+                result_files_coords.append(join(input_folder,F"a{cur_year}", 'salidas',
+                            F'wrfout_c15d_d01_{cur_year}-01-01_00:00:00.a{cur_year}'))  # always read the first of jan (assuming it exist)
+                # result_files_coords.append(join(input_folder,F"a{cur_year}",
+                #                                 F'wrfout_c15d_d01_{cur_year}-01-01_00:00:00.{cur_year}'))  # always read the first of jan (assuming it exist)
                 result_files.append(curr_file)
-                # result_paths.append(join(input_folder, F"a{cur_year}", 'salidas', curr_file))
-                result_paths.append(join(input_folder, F"a{cur_year}", curr_file))
+                result_paths.append(join(input_folder, F"a{cur_year}", 'salidas', curr_file))
+                # result_paths.append(join(input_folder, F"a{cur_year}", curr_file))
                 result_dates.append(dateNetCDF)
                 print(F'{curr_file} -- {dateNetCDF}')
 
