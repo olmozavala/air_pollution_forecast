@@ -13,3 +13,7 @@ class constants(Enum):
 
 class metricsNames(Enum):
     mse = 1
+
+class wrfFileType(Enum):
+    old = 0
+    new = 1

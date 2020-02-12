@@ -18,9 +18,21 @@ def crop_variables_xr(xr_ds, variables, bbox, times):
         croppedVar, newLat, newLon = crop_variable_np(cur_var, LON=lon, LAT=lat, minlat=minlat, maxlat=maxlat,
                                                       minlon=minlon, maxlon=maxlon, times=times)
         output_xr_ds[cur_var_name] = xr.DataArray(croppedVar.values, coords=[('newtime', times), ('newlat', newLat), ('newlon', newLon)])
-        # TODO here we now need to modify the
 
-    return output_xr_ds, lat, lon
+    return output_xr_ds, newLat, newLon
+
+
+def crop_variables_xr_cca_reanalisis(xr_ds, variables, bbox, times, LAT, LON):
+    output_xr_ds = xr.Dataset()
+    for cur_var_name in variables:
+        print(F"\t\t {cur_var_name}")
+        cur_var = xr_ds[cur_var_name]
+        minlat, maxlat, minlon, maxlon = bbox
+        croppedVar, newLat, newLon = crop_variable_np(cur_var, LON=LON, LAT=LAT, minlat=minlat, maxlat=maxlat,
+                                                      minlon=minlon, maxlon=maxlon, times=times)
+        output_xr_ds[cur_var_name] = xr.DataArray(croppedVar.values, coords=[('newtime', times), ('newlat', newLat), ('newlon', newLon)])
+
+    return output_xr_ds, newLat, newLon
 
 
 def crop_variable_np(np_data, LON, LAT, minlat, maxlat, minlon, maxlon, times):
@@ -39,24 +51,41 @@ def crop_variable_np(np_data, LON, LAT, minlat, maxlat, minlon, maxlon, times):
     """
 
     dims = len(LAT.shape)
-    assert dims == 3  # This code only works when we have three dimensions on the variables
+    if dims == 1:
+        minLatIdx = np.argmax(LAT >= minlat)
+        maxLatIdx = np.argmax(LAT >= maxlat)-1
+        minLonIdx = np.argmax(LON >= minlon)
+        maxLonIdx = np.argmax(LON >= maxlon)-1
 
-    minLatIdx = np.argmax(LAT[0,:,0] >= minlat)
-    maxLatIdx = np.argmax(LAT[0,:,0] >= maxlat)-1
-    minLonIdx = np.argmax(LON[0,0,:] >= minlon)
-    maxLonIdx = np.argmax(LON[0,0,:] >= maxlon)-1
+        # Just for debugging
+        # minLatVal = LAT[minLatIdx]
+        # maxLatVal = LAT[maxLatIdx]
+        # minLonVal = LON[minLonIdx]
+        # maxLonVal = LON[maxLonIdx]
+        # Just for debugging end
 
-    # Just for debugging
-    # minLatVal = LAT[0,minLatIdx,0]
-    # minLonVal = LON[0,0,minLonIdx]
-    # maxLatVal = LAT[0,maxLatIdx,0]
-    # maxLonVal = LON[0,0,maxLonIdx]
-    # Just for debugging end
+        newLAT = LAT[minLatIdx:maxLatIdx]
+        newLon = LON[minLonIdx:maxLonIdx]
 
-    newLAT = LAT[0,minLatIdx:maxLatIdx, 0]
-    newLon = LON[0,0,minLonIdx:maxLonIdx]
+        croppedVar = np_data[times,minLatIdx:maxLatIdx, minLonIdx:maxLonIdx]
 
-    croppedVar = np_data[times,minLatIdx:maxLatIdx, minLonIdx:maxLonIdx]
+    if dims == 3:
+        minLatIdx = np.argmax(LAT[0,:,0] >= minlat)
+        maxLatIdx = np.argmax(LAT[0,:,0] >= maxlat)-1
+        minLonIdx = np.argmax(LON[0,0,:] >= minlon)
+        maxLonIdx = np.argmax(LON[0,0,:] >= maxlon)-1
+
+        # Just for debugging
+        # minLatVal = LAT[0,minLatIdx,0]
+        # minLonVal = LON[0,0,minLonIdx]
+        # maxLatVal = LAT[0,maxLatIdx,0]
+        # maxLonVal = LON[0,0,maxLonIdx]
+        # Just for debugging end
+
+        newLAT = LAT[0,minLatIdx:maxLatIdx, 0]
+        newLon = LON[0,0,minLonIdx:maxLonIdx]
+
+        croppedVar = np_data[times,minLatIdx:maxLatIdx, minLonIdx:maxLonIdx]
 
     return croppedVar, newLAT, newLon
 
@@ -71,7 +100,7 @@ def subsampleData(xr_ds, variables, num_rows, num_cols):
     :return type : matrix float32
     """
 
-    output_xr_ds = xr.Dataset()
+    output_xr_ds = xr.Dataset() # Creates empty dataset
     # Retrieving the new values for the coordinates
     cur_coords_names = list(xr_ds.coords.keys())
 
@@ -93,8 +122,8 @@ def subsampleData(xr_ds, variables, num_rows, num_cols):
         for i in range(num_hours):
             # Here we split the original array into the desired columns and rows
             for cur_row in range(num_rows):
-                lat_start= lat_splits_idx[cur_row][0]
-                lat_end= lat_splits_idx[cur_row][1]
+                lat_start = lat_splits_idx[cur_row][0]
+                lat_end = lat_splits_idx[cur_row][1]
                 for cur_col in range(num_cols):
                     lon_start = lon_splits_idx[cur_col][0]
                     lon_end = lon_splits_idx[cur_col][1]
