@@ -7,6 +7,7 @@ from conf.localConstants import wrfFileType
 import os
 import xarray as xr
 # from img_viz.eoa_viz import EOAImageVisualizer
+from multiprocessing import Pool
 
 from io_netcdf.inout import read_wrf_files_names, read_wrf_old_files_names, saveFlattenedVariables
 
@@ -25,7 +26,7 @@ def process_files(user_config, all_path_names, all_file_names, all_dates, all_fi
     for file_idx in range(len(all_path_names)):
         print(F"================ {all_file_names[file_idx]} ================================ ")
         # Read file as xarray
-        cur_xr_ds = xr.open_dataset(all_path_names[file_idx])
+        cur_xr_ds = xr.open_dataset(all_path_names[file_idx], decode_times=False)
         # Printing the summary of the data
         # viz_obj.xr_summary(cur_xr_ds)
         print(F"\tCropping...")
@@ -74,7 +75,7 @@ def process_files(user_config, all_path_names, all_file_names, all_dates, all_fi
             # print("\tVisualizing subsampled results...")
             # file_text = F"{output_size['rows']}x{output_size['cols']}_{all_file_names[file_idx]}"
             # viz_obj.plot_3d_data_xarray_map(subsampled_xr_ds, var_names=variable_names, timesteps=[0,1], title='Subsampled Data',
-                                            file_name_prefix=F"Subsampled_{file_text}", timevar_name='newtime')
+            #                                 file_name_prefix=F"Subsampled_{file_text}", timevar_name='newtime')
 
             print("\tFlattening variables and saving as csv")
             # Obtain time strings for current file
@@ -89,6 +90,22 @@ def process_files(user_config, all_path_names, all_file_names, all_dates, all_fi
                 print(F"ERROR!!!!! Failed to save file {all_path_names[file_idx]}: {e}")
             continue
 
+def runParallel(year):
+    user_config = getPreprocWRFParams()
+
+    input_folder = user_config[PreprocParams.input_folder_new]
+    input_folder_old = user_config[PreprocParams.input_folder_old]
+
+    start_date_old = F'{year}-01-01'
+    end_date_old = F'{year + 1}-01-01'
+
+    print("Working with old model files...")
+    all_dates_old, all_file_names_old, all_files_coords_old, all_path_names_old = read_wrf_old_files_names(
+                    input_folder_old, start_date_old, end_date_old)
+    process_files(user_config, all_path_names_old, all_file_names_old, all_dates_old, all_files_coords_old,
+                  mode=wrfFileType.old)
+    print("Done!")
+
 def main():
 
     # Reads user configuration
@@ -101,14 +118,21 @@ def main():
     start_date_old = user_config[PreprocParams.start_date_oldmodel]
     end_date_old = user_config[PreprocParams.end_date_oldmodel]
 
-    print("Working with old model files...")
-    all_dates_old, all_file_names_old, all_files_coords_old, all_path_names_old = read_wrf_old_files_names(input_folder_old, start_date_old, end_date_old)
-    process_files(user_config, all_path_names_old, all_file_names_old, all_dates_old, all_files_coords_old, mode=wrfFileType.old)
-    print("Done!")
-    print("Working with new model files...")
-    all_dates, all_file_names , all_path_names = read_wrf_files_names(input_folder, start_date, end_date)
-    process_files(user_config, all_path_names, all_file_names, all_dates, [], mode=wrfFileType.new)
-    print("Done!")
+    # print("Working with old model files...")
+    # all_dates_old, all_file_names_old, all_files_coords_old, all_path_names_old = read_wrf_old_files_names(input_folder_old, start_date_old, end_date_old)
+    # process_files(user_config, all_path_names_old, all_file_names_old, all_dates_old, all_files_coords_old, mode=wrfFileType.old)
+    # print("Done!")
+    # print("Working with new model files...")
+    # all_dates, all_file_names, all_path_names = read_wrf_files_names(input_folder, start_date, end_date)
+    # process_files(user_config, all_path_names, all_file_names, all_dates, [], mode=wrfFileType.new)
+    # print("Done!")
+
+    # Patch to make it parallel for 'old model'
+    NUMBER_PROC = 10
+    p = Pool(NUMBER_PROC)
+    p.map(runParallel, range(1980,2018))
+
+
 
 if __name__== '__main__':
     main()
