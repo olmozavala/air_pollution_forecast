@@ -4,7 +4,7 @@ from conf.localConstants import constants
 from conf.TrainingUserConfiguration import getTrainingParams
 from inout.io_common import create_folder
 from conf.params import LocalTrainingParams
-from proj_preproc.preproc import normalizeAndFilterData
+from proj_preproc.preproc import normalizeAndFilterData, generate_date_hot_vector
 import trainingutils as utilsNN
 from models.modelSelector import select_1d_model
 
@@ -46,10 +46,20 @@ def main():
     create_folder(weights_folder)
     create_folder(logs_folder)
 
+    data = None
+    for year in range(2010, 2019):
+        print(F"============ Reading data for {year}: {pollutant} -- AllStations ==========================")
+        db_file_name = join(input_folder, F"{year}_{pollutant}_AllStations.csv")
+        if data is None:
+            data = pd.read_csv(db_file_name, index_col=0, parse_dates=True)
+        else:
+            data = data.append(pd.read_csv(db_file_name, index_col=0, parse_dates=True))
 
-    print(F"============ Reading data for: {pollutant} -- AllStations ==========================")
-    db_file_name = join(input_folder, constants.merge_output_folder.value, F"{pollutant}_AllStations.csv")
-    data = pd.read_csv(db_file_name, index_col=0)
+    print("Appending date hot vector...")
+    date_hv = generate_date_hot_vector(data.index)
+    data = pd.concat([data, date_hv], axis=1)
+    print("Done!")
+
     config[ModelParams.INPUT_SIZE] = len(data.columns)
     print(F'Data shape: {data.shape} Data axes {data.axes}')
     print("Done!")
@@ -58,10 +68,12 @@ def main():
     data_norm_df_final, accepted_times_idx, y_times_idx, stations_columns, meteo_columns =\
         normalizeAndFilterData(data, datetimes_str, forecasted_hours)
 
-    X_df = data_norm_df_final.loc[datetimes_str[accepted_times_idx]]
-    Y_df = data_norm_df_final.loc[datetimes_str[y_times_idx]][stations_columns]
-    X = X_df.values
-    Y = Y_df.values
+    print(F'')
+    # X_df = data_norm_df_final.loc[datetimes_str[accepted_times_idx]]
+    # Y_df = data_norm_df_final.loc[datetimes_str[y_times_idx]][stations_columns]
+
+    X = data_norm_df_final.loc[datetimes_str[accepted_times_idx]].values
+    Y = data_norm_df_final.loc[datetimes_str[y_times_idx]][stations_columns].values
 
     print(F'X shape: {X.shape} Y shape: {Y.shape}')
 
@@ -82,6 +94,8 @@ def main():
     model_name = F'{model_name_user}_{now}_{pollutant}_AllStations'
 
     # ******************* Selecting the model **********************
+    config[ModelParams.NUMBER_OF_OUTPUT_CLASSES] = Y.shape[1]
+    print(F"Nomber of output variables {Y.shape[1]}")
     model = select_1d_model(config)
     plot_model(model, to_file=join(output_folder, F'{model_name}.png'), show_shapes=True)
 

@@ -14,7 +14,7 @@ training_output_folder = '/data/UNAM/Air_Pollution_Forecast/Data/Training/'
 
 # =================================== TRAINING ===================================
 # ----------------------------- UM -----------------------------------
-_run_name = F'Adam_AllStations_300_300_200_100'  # Name of the model, for training and classification
+_run_name = F'2010_2018_Adam_AllStations_300_300_200_100_TimeHV'  # Name of the model, for training and classification
 
 def append_model_params(cur_config):
     model_config = {
@@ -29,18 +29,18 @@ def append_model_params(cur_config):
 
 def getTrainingParams():
     cur_config = {
-        TrainingParams.input_folder: output_folder,
+        TrainingParams.input_folder: join(output_folder, constants.merge_output_folder.value, '2020_02_14'),
         TrainingParams.output_folder: F"{join(output_folder, constants.training_output_folder.value)}",
         TrainingParams.validation_percentage: .1,
-        TrainingParams.test_percentage: .1,
+        TrainingParams.test_percentage: 0, # We will test with a diferent day
         TrainingParams.evaluation_metrics: [metrics.mean_squared_error],  # Metrics to show in tensor flow in the training
         TrainingParams.loss_function: losses.mean_squared_error,  # Loss function to use for the learning
         TrainingParams.optimizer: Adam(),  # Default values lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=None,
-        TrainingParams.batch_size: 1024,
+        TrainingParams.batch_size: 3,
         TrainingParams.epochs: 5000,
         TrainingParams.config_name: _run_name,
         TrainingParams.data_augmentation: False,
-        LocalTrainingParams.station: "AJU",
+        # LocalTrainingParams.station: "AJU",
         # LocalTrainingParams.station: ["ACO", "AJM", "AJU", "ARA", "ATI", "AZC", "BJU", "CAM", "CCA", "CES", "CFE", "CHO", "COR", "COY", "CUA"
         #  ,"CUI", "CUT", "DIC", "EAJ", "EDL", "FAC", "FAN", "GAM", "HAN", "HGM", "IBM", "IMP", "INN", "IZT", "LAA", "LAG", "LLA"
         #  ,"LOM", "LPR", "LVI", "MCM", "MER", "MGH", "MIN", "MON", "MPA", "NET", "NEZ", "PED", "PER", "PLA", "POT", "SAG", "SFE"
@@ -68,9 +68,9 @@ def getMergeParams():
         MergeFilesParams.pollutant_tables: ["cont_otres"],
         MergeFilesParams.forecasted_hours: 24,
         LocalTrainingParams.tot_num_quadrants: 64,
-        LocalTrainingParams.num_hours_in_netcdf: 24,
+        LocalTrainingParams.num_hours_in_netcdf: 72,
         MergeFilesParams.output_folder: join(output_folder, constants.merge_output_folder.value),
-        MergeFilesParams.years: range(2010,2019)
+        MergeFilesParams.years: range(2018,2020)
     }
 
     return cur_config

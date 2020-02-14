@@ -99,6 +99,7 @@ def readMeteorologicalData(datetimes, forecasted_hours, num_hours_in_netcdf, WRF
                         all_meteo_columns.append(F"{cur_col}_h{cur_forcasted_hour}")
                 append_meteo_colums = False
 
+            tot_cols_per_row = tot_meteo_columns * forecasted_hours
             if cur_hour + forecasted_hours > num_hours_in_netcdf:
                 if next_day_prev_loaded_file != next_day_netCDF_file_name:
                     next_day_prev_loaded_file = next_day_netCDF_file_name
@@ -108,12 +109,13 @@ def readMeteorologicalData(datetimes, forecasted_hours, num_hours_in_netcdf, WRF
                 # Appends the meteo data into the proper row of the database
                 start_idx = cur_hour * tot_meteo_columns  # First column to copy from the current day
                 end_idx = tot_meteo_columns * (forecasted_hours - cur_hour)
-                x_data_meteo[date_idx, :end_idx] = meteo_data[start_idx:]
+                x_data_meteo[date_idx, :end_idx] = meteo_data[start_idx: start_idx+tot_cols_per_row]
                 start_idx = end_idx
                 end_idx = (num_hours_in_netcdf - forecasted_hours + cur_hour) * tot_meteo_columns  # Last column to copy from the next day
                 x_data_meteo[date_idx, start_idx:] = next_day_meteo_data[:end_idx]
             else:
-                x_data_meteo[date_idx, :] = meteo_data
+                end_idx = tot_cols_per_row
+                x_data_meteo[date_idx, :] = meteo_data[:end_idx]
 
     return x_data_meteo, all_meteo_columns
 
@@ -201,7 +203,10 @@ def merge_by_year(config):
 
             print("\tSaving merged database ...")
             output_file_name = F"{cur_pollutant}_AllStations.csv"
-            x_data_merged_df.to_csv(join(output_folder,{date.today().strftime('%Y_%m_%d')}, F"{current_year}_{output_file_name}"),
+            cur_output_folder = join(output_folder, date.today().strftime('%Y_%m_%d'))
+            if not(os.path.exists(cur_output_folder)):
+                os.makedirs(cur_output_folder)
+            x_data_merged_df.to_csv(join(cur_output_folder, F"{current_year}_{output_file_name}"),
                                     float_format="%.2f",
                                     index_label=constants.index_label.value)
             print("\tDone!")
