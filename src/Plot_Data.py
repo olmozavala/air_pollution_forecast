@@ -22,6 +22,8 @@ import geopandas as pd
 
 COLORS = ['r', 'g', 'b', 'y']
 
+# plot_date_format = "%b %d %H hrs"
+plot_date_format = "%l %p, %b %d"
 app = dash.Dash(__name__)
 
 styles = {
@@ -37,7 +39,7 @@ pollutant = "O3"
 default_date = date.today()
 table = findTable(pollutant)
 default_date = date.today()
-default_station = "AJM"
+default_stations = [x for x in stations_geodf.index.values]
 time_range = 1
 
 app.layout = html.Div([
@@ -97,8 +99,10 @@ app.layout = html.Div([
             html.Span(id='hover-data'),
             dcc.Graph(
                 id='station-plot',
-                figure={} ),
-
+                figure={}),
+            dcc.Graph(
+                id='anomaly-plot',
+                figure={}),
         ]),
     ])
 ])
@@ -129,19 +133,23 @@ def display_figure_title(hoverData):
     if hoverData is not None:
         selected_stations = hoverData['points'][0]['customdata']
     else:
-        selected_stations = default_station
+        selected_stations = default_stations
 
     name = stations_geodf.loc[selected_stations]['nombre']
     return html.P(name)
 
 @app.callback(
-    Output('station-plot', 'figure'),
+    [Output('station-plot', 'figure'),
+    Output('anomaly-plot', 'figure')],
     [Input('id-map', 'clickData'),
      Input('calendar', 'date'),
-     Input('id-map', 'selectedData'))
-def display_figure_title(hoverData, cur_date, selectedData):
+     Input('id-map', 'selectedData')])
+def display_figure_plot(hoverData, cur_date, selectedData):
+    if cur_date is None:
+        return getEmptyFigure(''), getEmptyFigure('')
+
     if hoverData is None:
-        selected_stations = [default_station]
+        selected_stations = default_stations
     else:
         selected_stations = [hoverData['points'][0]['customdata']]
 
@@ -156,7 +164,7 @@ def display_figure_title(hoverData, cur_date, selectedData):
 
     name = stations_geodf.loc[selected_stations]['nombre']
     if stations_data.shape[0] == 0:
-        return getEmptyFigure(name)
+        return getEmptyFigure(name), getEmptyFigure(name)
     else:
         figure = {
             'data': getData(stations_data),
@@ -169,8 +177,47 @@ def display_figure_title(hoverData, cur_date, selectedData):
                 },
             }
         }
-        return figure
-    
+        figure_anomaly = {
+            'data': getDataAnomaly(stations_data),
+            'layout': {
+                'title': F'{pollutant} around {cur_date.strftime("%B %d, %Y")}',
+                'clickmode': 'event+select',
+                'legend': {
+                    'x': 1,
+                    'y': 1
+                },
+            }
+        }
+        return figure, figure_anomaly
+
+def getDataAnomaly(stations_data):
+    all_stations = stations_data['id'].unique()
+    data = []
+    all_dates = stations_data.sort_values(by=['date'])['date'].unique()
+    composedData = pd.GeoDataFrame(index=all_dates)
+    # TODO improve this hack to get nulls on the rows where there is no data
+    for cur_station in all_stations:
+        tempSeries = stations_data[stations_data['id'] == cur_station].set_index('date')
+        composedData[cur_station] = tempSeries['id']
+        composedData[F"{cur_station}_value"] = tempSeries['value']
+
+    mean_data = composedData.mean(axis=1)
+
+    for idx, cur_station in enumerate(all_stations):
+        dates_station = composedData[cur_station].index
+        dates_str = [x.strftime(plot_date_format) for x in dates_station]
+        values = composedData[F"{cur_station}_value"] - mean_data
+        data.append({
+            'x': dates_str,
+            'y': values,
+            'name': stations_geodf.loc[cur_station]['nombre'],
+            'type': 'line',
+            'line_shape': 'spline',
+            'mode': 'lines+markers'
+        })
+
+    return data
+
 def getData(stations_data):
     all_stations = stations_data['id'].unique()
     data = []
@@ -184,7 +231,7 @@ def getData(stations_data):
 
     for idx, cur_station in enumerate(all_stations):
         dates_station = composedData[cur_station].index
-        dates_str = [x.strftime("%b %d %H hrs") for x in dates_station]
+        dates_str = [x.strftime(plot_date_format) for x in dates_station]
         values = composedData[F"{cur_station}_value"]
         data.append({
             'x': dates_str,
@@ -194,6 +241,22 @@ def getData(stations_data):
             'line_shape': 'spline',
             'mode': 'lines+markers'
         })
+
+    mean_data = composedData.mean(axis=1)
+    all_dates_str = [x.strftime(plot_date_format) for x in composedData.index]
+    data.append({
+        'x': all_dates_str,
+        'y': mean_data,
+        'name': 'MEAN',
+        'type': 'line',
+        'line_shape': 'spline',
+        'line': {
+            'color': 'black',
+            'width': 5,
+            'dash': 'dash',
+        },
+        'mode': 'lines+markers'
+    })
 
     return data
 

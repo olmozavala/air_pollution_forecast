@@ -32,6 +32,7 @@ class MergeFilesParams(Enum):
     stations = 4
     pollutant_tables = 5
     forecasted_hours = 6
+    years = 9
 
 class LocalTrainingParams(Enum):
     pollutant = 1

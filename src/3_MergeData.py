@@ -57,21 +57,30 @@ def readMeteorologicalData(datetimes, forecasted_hours, num_hours_in_netcdf, WRF
     # To make it more efficient we verify which netcdf data was loaded previously
     dates = [cur_datetime.date() for cur_datetime in datetimes]
     prev_loaded_file = ''
+    next_day_prev_loaded_file = ''
     append_meteo_colums = True
+    x_data_meteo = None
+    all_meteo_columns = None
     print(F"\tAppending meteorological data...")
     for date_idx, cur_datetime in enumerate(datetimes):
-        print('.', end='')
+        if date_idx % (24*365) == 0:
+            print(cur_datetime)
+
         cur_date_str = date.strftime(dates[date_idx], constants.date_format.value)
         cur_hour = datetimes[date_idx].hour
-        # Obtain the name of the required file
-        if cur_hour + forecasted_hours < num_hours_in_netcdf:
-            required_netCDF_file_name = join(WRF_data_folder_name, F"{cur_date_str}.csv")
-        else:
-            cur_date_str = date.strftime(dates[date_idx + 1], constants.date_format.value)
-            required_netCDF_file_name = join(WRF_data_folder_name, F"{cur_date_str}.csv")
+
+        # Obtain the name of the necdf file or files (if we need data from two files)
+        required_netCDF_file_name = join(WRF_data_folder_name, F"{cur_date_str}.csv")
+        next_day_netCDF_file_name = required_netCDF_file_name
+        if cur_hour + forecasted_hours > num_hours_in_netcdf:
+            if (date_idx + 1) < len(datetimes): # Simple validation of the last date
+                cur_date_str = date.strftime(datetimes[date_idx] + np.timedelta64(1, 'D'), constants.date_format.value)
+                next_day_netCDF_file_name = join(WRF_data_folder_name, F"{cur_date_str}.csv")
+            else:
+                continue
 
         # Verify the desired file exist (if not it means we don't have meteo data for that pollution variable)
-        if os.path.exists(required_netCDF_file_name):
+        if os.path.exists(required_netCDF_file_name) & os.path.exists(next_day_netCDF_file_name):
             # Reads the proper netcdf file
             if required_netCDF_file_name != prev_loaded_file:
                 # print(F"\t\t Reading {required_netCDF_file_name}...")
@@ -79,26 +88,37 @@ def readMeteorologicalData(datetimes, forecasted_hours, num_hours_in_netcdf, WRF
                 netcdf_data = pd.read_csv(required_netCDF_file_name, index_col=0)
                 meteo_data = netcdf_data.values.flatten()
 
-                # Adding additional columns into the final dataframe, not sure if there is a faster way
-                if append_meteo_colums:
-                    meteo_columns = netcdf_data.axes[1].values
-                    tot_meteo_columns = len(meteo_columns)
-                    x_data_meteo = np.zeros((tot_examples, tot_meteo_columns * forecasted_hours))
-                    all_meteo_columns = []
-                    for cur_forcasted_hour in range(forecasted_hours):
-                        for cur_col in meteo_columns:
-                            all_meteo_columns.append(F"{cur_col}_h{cur_forcasted_hour}")
-                    append_meteo_colums = False
+            # === TODO this is executed only once, move outsite the loop Adding additional columns into the final dataframe, not sure if there is a faster way
+            if append_meteo_colums:
+                meteo_columns = netcdf_data.axes[1].values
+                tot_meteo_columns = len(meteo_columns)
+                x_data_meteo = np.zeros((tot_examples, tot_meteo_columns * forecasted_hours))
+                all_meteo_columns = []
+                for cur_forcasted_hour in range(forecasted_hours):
+                    for cur_col in meteo_columns:
+                        all_meteo_columns.append(F"{cur_col}_h{cur_forcasted_hour}")
+                append_meteo_colums = False
 
-            # print(F"\t\t\tAppending meteo data for current datetime: {datetimes[date_idx]}")
-            # Appends the meteo data into the proper row of the database
-            x_data_meteo[date_idx, :] = meteo_data[
-                                        cur_hour * tot_meteo_columns:(cur_hour + forecasted_hours) * tot_meteo_columns]
+            if cur_hour + forecasted_hours > num_hours_in_netcdf:
+                if next_day_prev_loaded_file != next_day_netCDF_file_name:
+                    next_day_prev_loaded_file = next_day_netCDF_file_name
+                    next_day_netcdf_data = pd.read_csv(next_day_netCDF_file_name, index_col=0)
+                    next_day_meteo_data = next_day_netcdf_data.values.flatten()
+
+                # Appends the meteo data into the proper row of the database
+                start_idx = cur_hour * tot_meteo_columns  # First column to copy from the current day
+                end_idx = tot_meteo_columns * (forecasted_hours - cur_hour)
+                x_data_meteo[date_idx, :end_idx] = meteo_data[start_idx:]
+                start_idx = end_idx
+                end_idx = (num_hours_in_netcdf - forecasted_hours + cur_hour) * tot_meteo_columns  # Last column to copy from the next day
+                x_data_meteo[date_idx, start_idx:] = next_day_meteo_data[:end_idx]
+            else:
+                x_data_meteo[date_idx, :] = meteo_data
 
     return x_data_meteo, all_meteo_columns
 
 
-def mergeByMonth(config):
+def merge_by_year(config):
     input_folder = config[MergeFilesParams.input_folder]
     output_folder = config[MergeFilesParams.output_folder]
     stations = config[MergeFilesParams.stations]
@@ -106,6 +126,7 @@ def mergeByMonth(config):
     forecasted_hours = config[MergeFilesParams.forecasted_hours]
     num_quadrants = config[LocalTrainingParams.tot_num_quadrants]
     num_hours_in_netcdf = config[LocalTrainingParams.num_hours_in_netcdf]
+    years = config[MergeFilesParams.years]
 
     WRF_data_folder_name = join(input_folder, constants.wrf_output_folder.value,
                                 F"{constants.wrf_each_quadrant_name.value}_{getQuadrantsAsString(num_quadrants)}")
@@ -115,6 +136,7 @@ def mergeByMonth(config):
 
     # =============== Read data and merge meteorological variables===============
     data_pollutants = None
+
     # Iterate over all pollutants
     for cur_pollutant in pollutants:
         # Obtain all the 'available pollution dates'
@@ -129,7 +151,12 @@ def mergeByMonth(config):
                 notfound.append(cur_station)
                 continue
 
-            data_cur_station = pd.read_csv(db_file_name,  index_col=0, parse_dates=True)
+            # These are integer values so we can make the reading more efficiently
+            if cur_pollutant in ['cont_otres']:
+                data_cur_station = pd.read_csv(db_file_name,  index_col=0, parse_dates=True, dtype={cur_pollutant: np.int32})
+            else:
+                data_cur_station = pd.read_csv(db_file_name, index_col=0, parse_dates=True, )
+
             data_cur_station = data_cur_station.rename(columns={cur_pollutant: cur_station})
 
             if data_pollutants is None:
@@ -137,39 +164,50 @@ def mergeByMonth(config):
             else:
                 data_pollutants = pd.concat([data_pollutants, data_cur_station], axis=1)
 
-        print(F"\tDone!  Not found: {notfound}")
+        # Iterate over all the years
+        for current_year in years:
+            print(F"\tDone!  Not found: {notfound}")
 
-        # Filtering dates that are not available in the meteorological data
-        print(F"Filtering dates with meteorological information")
-        datetimes = pd.to_datetime(data_pollutants.index)
-        not_meteo_idxs = filterDatesWithMeteorologicalData(datetimes, forecasted_hours, num_hours_in_netcdf,
-                                                           WRF_data_folder_name)
+            print(F"Filtering dates for the year {current_year}")
+            start_date = F'{current_year}-01-01'
+            # end_date = F'{current_year}-01-05'
+            end_date = F'{current_year+1}-01-01'
+            datetimes = pd.to_datetime(data_pollutants.index)
+            not_valid_dates = np.logical_not( (datetimes >= np.datetime64(start_date)) & (datetimes < np.datetime64(end_date)))
+            data_pollutants_filtered = data_pollutants.drop(data_pollutants.index[not_valid_dates])
+            # Reloading the dates
+            datetimes = pd.to_datetime(data_pollutants_filtered.index)
 
-        # Remove pollutant data where we don't have meteorolical data (removed from training examples)
-        data_pollutants = data_pollutants.drop([datetimes[x] for x in not_meteo_idxs])
+            # Filtering dates that are not available in the meteorological data
+            print(F"Filtering dates with meteorological information")
+            not_meteo_idxs = filterDatesWithMeteorologicalData(datetimes, forecasted_hours, num_hours_in_netcdf,
+                                                               WRF_data_folder_name)
 
-        # Refresh valid dates
-        tot_examples = len(data_pollutants.index)
-        print(F"\tOriginal examples: {len(datetimes)} new examples: {tot_examples}")
-        datetimes = pd.to_datetime(data_pollutants.index)
+            # Remove pollutant data where we don't have meteorolical data (removed from training examples)
+            data_pollutants_filtered = data_pollutants_filtered.drop([datetimes[x] for x in not_meteo_idxs])
 
-        x_data_meteo, all_meteo_columns = readMeteorologicalData(datetimes, forecasted_hours, num_hours_in_netcdf,
-                                                                 WRF_data_folder_name, tot_examples)
+            # Refresh valid dates
+            tot_examples = len(data_pollutants_filtered.index)
+            print(F"\tOriginal examples: {len(datetimes)} new examples: {tot_examples}")
+            datetimes = pd.to_datetime(data_pollutants_filtered.index)
 
-        x_data_merged_df = DataFrame(x_data_meteo, columns=all_meteo_columns, index=data_pollutants.index)
-        final_stations = data_pollutants.columns.values
-        for cur_station in final_stations:
-            x_data_merged_df[cur_station] = data_pollutants[cur_station]
+            x_data_meteo, all_meteo_columns = readMeteorologicalData(datetimes, forecasted_hours, num_hours_in_netcdf,
+                                                                     WRF_data_folder_name, tot_examples)
 
-        print("\tSaving merged database ...")
-        output_file_name = F"{cur_pollutant}_AllStations.csv"
-        x_data_merged_df.to_csv(join(output_folder, output_file_name),
-                                float_format="%.4f",
-                                index_label=constants.index_label.value)
-        print("\tDone!")
+            x_data_merged_df = DataFrame(x_data_meteo, columns=all_meteo_columns, index=data_pollutants_filtered.index)
+            final_stations = data_pollutants_filtered.columns.values
+            for cur_station in final_stations:
+                x_data_merged_df[cur_station] = data_pollutants_filtered[cur_station]
+
+            print("\tSaving merged database ...")
+            output_file_name = F"{cur_pollutant}_AllStations.csv"
+            x_data_merged_df.to_csv(join(output_folder,{date.today().strftime('%Y_%m_%d')}, F"{current_year}_{output_file_name}"),
+                                    float_format="%.2f",
+                                    index_label=constants.index_label.value)
+            print("\tDone!")
 
 
-def mergeByStation(config):
+def merge_by_station(config):
     input_folder = config[MergeFilesParams.input_folder]
     output_folder = config[MergeFilesParams.output_folder]
     stations = config[MergeFilesParams.stations]
@@ -225,8 +263,8 @@ def mergeByStation(config):
                 print("\tSaving merged database ...")
                 output_file_name = F"{cur_pollutant}_{cur_station}.csv"
                 x_data_merged_df.to_csv(join(output_folder,output_file_name),
-                                        float_format="%.4f",
-                                        index_label = constants.index_label.value)
+                                        float_format="%.2f",
+                                        index_label=constants.index_label.value)
                 print("\tDone!")
             except Exception as e:
                 print(F"ERROR!!!!! It failed for {cur_pollutant} -- {cur_station}: {e} ")
@@ -235,6 +273,6 @@ def mergeByStation(config):
 if __name__ == '__main__':
 
     config = getMergeParams()
-    # mergeByStation(config)
-    mergeByMonth(config)
+    # merge_by_station(config)
+    merge_by_year(config)
 

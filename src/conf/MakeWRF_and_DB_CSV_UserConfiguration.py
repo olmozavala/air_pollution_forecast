@@ -14,7 +14,7 @@ def getPreprocWRFParams():
         PreprocParams.variables: ['U10', 'V10', 'RAINC', 'T2', 'RAINNC', 'SWDOWN', 'GLW'],
         # Donde se guardan los csv
         PreprocParams.input_folder_new: '/data/UNAM/Air_Pollution_Forecast/Data/WRF_Kraken/new_model',
-        # PreprocParams.input_folder_new: '/ServerData/Pronosticos/Salidas/WRF_Kraken',
+        # PreprocParams.input_folder_new: '/ServerData/WRF_Kraken'
         PreprocParams.input_folder_old: '/data/UNAM/Air_Pollution_Forecast/Data/WRF_Kraken/old_model_v4',
         # PreprocParams.input_folder_old: '/ServerData/CHACMOOL',
         PreprocParams.output_folder: join(output_folder, constants.wrf_output_folder.value),
@@ -62,12 +62,11 @@ def getPreprocDBParams():
               ,"XCH"],
         # Donde se guardan los csv
         DBToCSVParams.output_folder: join(output_folder, constants.db_output_folder.value),
-        DBToCSVParams.output_imgs_folder: join(output_folder, 'imgs'), # Path to save temporal images (netcdfs preprocessing)
         DBToCSVParams.display_imgs: True,  # Boolean that indicates if we want to save the images
         DBToCSVParams.num_hours: 72,
         # Start and end date to generate the CSVs. The dates are in python 'range' style. Start day
         # is included, last day is < than.
-        DBToCSVParams.start_date: '2017-01-01',
+        DBToCSVParams.start_date: '1980-01-01',
         # DBToCSVParams.start_date: '2019-12-01',
         DBToCSVParams.end_date: '2019-12-31',
     }

@@ -23,7 +23,6 @@ def append_model_params(cur_config):
         ModelParams.BATCH_NORMALIZATION: True,
         ModelParams.HIDDEN_LAYERS: 4,
         ModelParams.CELLS_PER_HIDDEN_LAYER: [300, 300, 200, 100],
-        ModelParams.NUMBER_OF_OUTPUT_CLASSES: 34,  # 34 stations
     }
     return {**cur_config, **model_config}
 
@@ -49,10 +48,11 @@ def getTrainingParams():
         #  , "XCH"],
         LocalTrainingParams.pollutant: "cont_otres",
         LocalTrainingParams.forecasted_hours: 24,
-        LocalTrainingParams.tot_num_quadrants: 16,  # 4x4
-        LocalTrainingParams.num_hours_in_netcdf: 72
+        LocalTrainingParams.tot_num_quadrants: 64,  # 4x4
+        LocalTrainingParams.num_hours_in_netcdf: 24
     }
     return append_model_params(cur_config)
+
 
 def getMergeParams():
     # We are using the same parameter as the
@@ -67,12 +67,14 @@ def getMergeParams():
           , "XCH"],
         MergeFilesParams.pollutant_tables: ["cont_otres"],
         MergeFilesParams.forecasted_hours: 24,
-        LocalTrainingParams.tot_num_quadrants: 16,
-        LocalTrainingParams.num_hours_in_netcdf: 72,
-        MergeFilesParams.output_folder: join(output_folder, constants.merge_output_folder.value)
+        LocalTrainingParams.tot_num_quadrants: 64,
+        LocalTrainingParams.num_hours_in_netcdf: 24,
+        MergeFilesParams.output_folder: join(output_folder, constants.merge_output_folder.value),
+        MergeFilesParams.years: range(2010,2019)
     }
 
     return cur_config
+
 
 def get_makeprediction_config():
     

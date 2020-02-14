@@ -1,4 +1,4 @@
-from conf.MakeWRF_CSV_UserConfiguration import getPreprocDBParams
+from conf.MakeWRF_and_DB_CSV_UserConfiguration import getPreprocDBParams
 from conf.params import DBToCSVParams
 from db.sqlCont import getPostgresConn
 from db.queries import *
@@ -14,8 +14,6 @@ def main():
     user_config = getPreprocDBParams()
     pollutants = user_config[DBToCSVParams.tables]
     output_folder = user_config[DBToCSVParams.output_folder]
-    output_folder_imgs= user_config[DBToCSVParams.output_imgs_folder]
-    num_hours = user_config[DBToCSVParams.num_hours]
     start_date = user_config[DBToCSVParams.start_date]
     end_date = user_config[DBToCSVParams.end_date]
     stations = user_config[DBToCSVParams.stations]

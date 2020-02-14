@@ -35,7 +35,7 @@ def read_wrf_old_files_names(input_folder, start_date, end_date):
         # Get all domain files (we have two domains now)
         all_domain_files = [x for x in all_files if file_re.match(x) != None]
         all_domain_files.sort()
-        print(all_domain_files)
+        # print(all_domain_files)
         # Verify the files are withing the desired dates
         for curr_file in all_domain_files:
             dateNetCDF = datetime.strptime(date_re.findall(curr_file)[0], '%Y-%m-%d')

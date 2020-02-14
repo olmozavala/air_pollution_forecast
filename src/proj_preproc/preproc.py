@@ -5,7 +5,7 @@ from conf.localConstants import constants
 
 # Manually setting the min/max values for the pollutant (ozone)
 _min_value_ozone = 0
-_max_value_ozone = 150
+_max_value_ozone = 250
 
 def normalizeAndFilterData(data, datetimes_str, forecasted_hours):
     """

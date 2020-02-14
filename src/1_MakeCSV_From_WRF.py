@@ -1,4 +1,4 @@
-from conf.MakeWRF_CSV_UserConfiguration import getPreprocWRFParams
+from conf.MakeWRF_and_DB_CSV_UserConfiguration import getPreprocWRFParams
 from conf.params import PreprocParams
 from proj_preproc.wrf import crop_variables_xr, crop_variables_xr_cca_reanalisis, subsampleData
 from proj_preproc.utils import getStringDates

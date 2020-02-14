@@ -13,10 +13,7 @@ import tensorflow as tf
 from tensorflow.keras.utils import plot_model
 import numpy as np
 import pandas as pd
-from pandas import DataFrame
 from os.path import join
-
-
 
 tf.config.experimental.VirtualDeviceConfiguration(memory_limit=12288)
 
