@@ -1,5 +1,4 @@
 from constants.AI_params import TrainingParams, ModelParams
-
 from conf.localConstants import constants
 from conf.TrainingUserConfiguration import getTrainingParams
 from inout.io_common import create_folder

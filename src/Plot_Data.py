@@ -35,7 +35,7 @@ styles = {
 
 conn = getPostgresConn()
 stations_geodf = getAllStations(conn)
-pollutant = "O3"
+pollutant = "PM2.5"
 default_date = date.today()
 table = findTable(pollutant)
 default_date = date.today()

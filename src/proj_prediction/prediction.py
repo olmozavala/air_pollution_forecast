@@ -20,6 +20,9 @@ def compute_metrics(gt, nn, metrics, split_info, output_file, column_names=[], b
     train_ids = split_info.iloc[:,0]
     val_ids = split_info.iloc[:,1]
     test_ids = split_info.iloc[:,2]
+    val_ids = val_ids.drop(pd.isna(val_ids).index.values)
+    train_ids = train_ids.drop(pd.isna(train_ids).index.values)
+    test_ids = test_ids.drop(pd.isna(test_ids).index.values)
 
     output_file = output_file.replace('.csv','')
     create_folder(os.path.dirname(output_file))
@@ -41,19 +44,28 @@ def compute_metrics(gt, nn, metrics, split_info, output_file, column_names=[], b
                 error = metric_f(GT, NN)
                 metrics_result[cur_col][metric_name] = error
                 # Training errors
-                GT = gt[cur_col][train_ids].values
-                NN = nn[cur_col][train_ids].values
-                error = metric_f(GT, NN)
+                if len(train_ids) > 0:
+                    GT = gt[cur_col][train_ids].values
+                    NN = nn[cur_col][train_ids].values
+                    error = metric_f(GT, NN)
+                else:
+                    error = 0
                 metrics_result[cur_col][F"{metric_name}_training"] = error
                 # Validation errors
-                GT = gt[cur_col][val_ids].values
-                NN = nn[cur_col][val_ids].values
-                error = metric_f(GT, NN)
+                if len(val_ids) > 0:
+                    GT = gt[cur_col][val_ids].values
+                    NN = nn[cur_col][val_ids].values
+                    error = metric_f(GT, NN)
+                else:
+                    error = 0
                 metrics_result[cur_col][F"{metric_name}_validation"] = error
                 # Test errors
-                GT = gt[cur_col][test_ids].values
-                NN = nn[cur_col][test_ids].values
-                error = metric_f(GT, NN)
+                if len(test_ids) > 0:
+                    GT = gt[cur_col][test_ids].values
+                    NN = nn[cur_col][test_ids].values
+                    error = metric_f(GT, NN)
+                else:
+                    error = 0
                 metrics_result[cur_col][F"{metric_name}_test"] = error
                 # import matplotlib.pyplot as plt
                 # print(metric_f(GT[0:100], NN[0:100]))

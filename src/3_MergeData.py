@@ -114,8 +114,11 @@ def readMeteorologicalData(datetimes, forecasted_hours, num_hours_in_netcdf, WRF
                 end_idx = (num_hours_in_netcdf - forecasted_hours + cur_hour) * tot_meteo_columns  # Last column to copy from the next day
                 x_data_meteo[date_idx, start_idx:] = next_day_meteo_data[:end_idx]
             else:
-                end_idx = tot_cols_per_row
-                x_data_meteo[date_idx, :] = meteo_data[:end_idx]
+                start_idx = cur_hour * tot_meteo_columns  # First column to copy from the current day
+                end_idx = start_idx + tot_cols_per_row
+                x_data_meteo[date_idx, :] = meteo_data[start_idx:end_idx]
+
+            # print(F"{start_idx} - {end_idx}")
 
     return x_data_meteo, all_meteo_columns
 

@@ -17,8 +17,9 @@ from data_generation.utilsDataFormat import *
 from models.modelSelector import select_1d_model
 from metrics import numpy_dice
 from os import listdir
-from proj_preproc.preproc import normalizeAndFilterData, deNormalize
+from proj_preproc.preproc import normalizeAndFilterData, deNormalize, generate_date_hot_vector
 from proj_prediction.prediction import compute_metrics
+
 
 def main():
     config = get_makeprediction_config()
@@ -43,8 +44,13 @@ def main():
 
     print(F"Working with: {model_weights_file} and {input_file}")
 
-    data = pd.read_csv(input_file, index_col=0)
+    data = pd.read_csv(input_file, index_col=0, parse_dates=True)
     datetimes_str = data.index.values
+
+    print("Appending date hot vector...")
+    date_hv = generate_date_hot_vector(data.index)
+    data = pd.concat([data, date_hv], axis=1)
+    print("Done!")
 
     config[ModelParams.INPUT_SIZE] = len(data.columns)
     print(F'Data shape: {data.shape} Data axes {data.axes}')
@@ -60,11 +66,19 @@ def main():
 
     # *********** Chooses the proper model ***********
     print('Reading model ....')
+    config[ModelParams.NUMBER_OF_OUTPUT_CLASSES] = Y.shape[1]
     model = select_1d_model(config)
 
     # *********** Chooses the proper model ***********
     print('Reading splits info....')
-    split_info = pd.read_csv(splits_file, dtype=np.int16)
+    if splits_file != '':  # In this case we do read the information
+        split_info = pd.read_csv(splits_file, dtype=np.int16)
+    else:
+        split_info = pd.DataFrame({'train_ids': [],
+                                 'validation_ids':[],
+                                 'test_id':[]})
+        split_info['train_ids'] = range(Y.shape[0])
+
 
     # *********** Reads the weights***********
     print('Reading weights ....')
@@ -85,7 +99,7 @@ def main():
 
     # ************ Computing metrics********
     print('Computing metrics....')
-    metrics_result = compute_metrics(Y_original, nn_original_units, metrics_user, split_info, output_file_name, stations_columns)
+    compute_metrics(Y_original, nn_original_units, metrics_user, split_info, output_file_name, stations_columns)
 
 if __name__ == '__main__':
     main()
