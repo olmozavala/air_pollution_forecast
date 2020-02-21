@@ -108,14 +108,16 @@ def saveFlattenedVariables(xr_ds, variable_names, output_folder, file_name, inde
         cols = dims[2]
 
         # Hardcoded variables to change the
-        if cur_var_name in ['RAINC', 'RAINNC']:
-            for i in range(times-1):
-                cur_var_np[i, :, :] = cur_var_np[i+1, :, :] - cur_var_np[i, :, :]
+        # if cur_var_name in ['RAINC', 'RAINNC']:
+        #     for i in range(times-1):
+        #         cur_var_np[i, :, :] = cur_var_np[i+1, :, :] - cur_var_np[i, :, :]
         var_flat_values = np.array([cur_var_np[i,:,:].flatten() for i in range(times)])
         var_columns = [F"{cur_var_name}_{i}" for i in range(rows*cols)]
         temp_dict = {var_columns[i]: var_flat_values[:,i] for i in range(len(var_columns))}
         all_data = pd.concat([all_data, pd.DataFrame(temp_dict)], axis=1)
 
     all_data.set_axis(index_names, inplace=True)
-    all_data.to_csv(join(output_folder,file_name), index_label=index_label);
+    all_data.to_csv(join(output_folder,file_name), index_label=index_label, float_format = "%.4f")
+
+
 

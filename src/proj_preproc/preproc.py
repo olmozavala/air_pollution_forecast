@@ -2,6 +2,8 @@ import numpy as np
 from datetime import datetime, date, timedelta
 import calendar
 import pandas as pd
+from inout.io_common import  create_folder
+from os.path import join
 
 from conf.localConstants import constants
 
@@ -35,7 +37,7 @@ def generate_date_hot_vector(datetimes_original):
     dates_hv_df = pd.DataFrame(out_dates_hv, columns=column_names, index=datetimes_original)
     return dates_hv_df
 
-def normalizeAndFilterData(data, datetimes_orig, forecasted_hours):
+def normalizeAndFilterData(data, datetimes_orig, forecasted_hours, output_folder='', run_name='', read_from_file=False):
     """
     This function normalizes de data and filters only the cases where we
     have the appropiate forecasted times. It also obtains the 'y' index
@@ -54,9 +56,17 @@ def normalizeAndFilterData(data, datetimes_orig, forecasted_hours):
     meteo_columns = [x for x in all_data_cols if (x.find('h') != -1) and (x not in date_columns)  and (x not in stations_columns)]
 
     # Normalizing meteorological variables
-    min_values_meteo = data[meteo_columns].min()
-    max_values_meteo = data[meteo_columns].max()
-
+    # In this case we obtain the normalization values directly from the data
+    if not(read_from_file):
+        min_values_meteo = data[meteo_columns].min()
+        max_values_meteo = data[meteo_columns].max()
+        # ********* Saving normalization values for each variable ******
+        create_folder(output_folder)
+        min_values_meteo.to_csv(join(output_folder,F'{run_name}_min_values.csv'))
+        max_values_meteo.to_csv(join(output_folder,F'{run_name}_max_values.csv'))
+    else: # In this case we obtain the normalization values from the provided file
+        min_values_meteo = pd.read_csv(join(output_folder,F'{run_name}_min_values.csv'), names=['Min'], squeeze=True)
+        max_values_meteo = pd.read_csv(join(output_folder,F'{run_name}_max_values.csv'), names=['Max'], squeeze=True)
 
     data_norm_df = data.copy()
     data_norm_df[meteo_columns] = (data_norm_df[meteo_columns] - min_values_meteo)/(max_values_meteo - min_values_meteo)
@@ -73,8 +83,11 @@ def normalizeAndFilterData(data, datetimes_orig, forecasted_hours):
             accepted_times_idx.append(i)
             y_times_idx.append(np.argwhere(forecasted_datetime == datetimes)[0][0])
 
-    # Replacing nan columns with the mean value of all the other columns
+    # ****************** Replacing nan columns with the mean value of all the other columns ****************
     mean_values = data_norm_df[stations_columns].mean(1)
+
+    # TODO aqui mero hay que poner -1 donde no haya datos y generar otra columna que se llame mean
+    # El reemplazo se tendra que hacer cuando se generan las X y las Y
 
     print(F"Filling nan values....")
     data_norm_df_final = data_norm_df.copy()

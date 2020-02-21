@@ -15,6 +15,7 @@ from db.names import findTable
 from datetime import date
 from datetime import date, timedelta
 from datetime import datetime as dt
+import datetime
 from viz.layout import get_layout_input_NN
 
 import geopandas as geopd
@@ -34,24 +35,20 @@ styles = {
     }
 }
 
-print("Reading data....")
-# gt_data = pd.read_csv('/data/UNAM/Air_Pollution_Forecast/Data/MergedDataCSV/Current/2017_cont_otres_AllStations.csv',
-#                       index_col=0, parse_dates=True)
-# gt_data = pd.read_csv('/data/UNAM/Air_Pollution_Forecast/Data/MergedDataCSV/Current/2018_cont_otres_AllStationsDebug.csv',
-#                       index_col = 0, parse_dates = True)
-gt_data = pd.read_csv('/data/UNAM/Air_Pollution_Forecast/Data/MergedDataCSV/Current/2018_cont_otres_AllStations.csv',
-                      index_col = 0, parse_dates = True)
-
-print("Done!")
-
 meteo_variables = ['U10', 'V10', 'RAINC', 'T2', 'RAINNC', 'SWDOWN', 'GLW', 'UV10MAG']
 conn = getPostgresConn()
 stations_geodf = getAllStations(conn)
 pollutant = "O3"
 table = findTable(pollutant)
-default_date = date.today()
+# default_date = date.today()
+year = 2012
+default_date = dt.strptime(F'{year}-01-01', date_format)
 time_range = 1
 
+print("Reading data....")
+gt_data = pd.read_csv(F'/data/UNAM/Air_Pollution_Forecast/Data/MergedDataCSV/Current/{year}_cont_otres_AllStations.csv',
+                      index_col = 0, parse_dates = True)
+print("Done!")
 app = get_layout_input_NN(default_date, stations_geodf, meteo_variables)
 
 @app.callback(

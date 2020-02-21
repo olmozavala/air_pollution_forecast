@@ -37,7 +37,7 @@ styles = {
 print("Reading data....")
 # gt_data = pd.read_csv('/data/UNAM/Air_Pollution_Forecast/Data/MergedDataCSV/Current/2010_cont_otres_AllStationsDebug.csv',
 #                       index_col=0, parse_dates=True)
-gt_data = pd.read_csv('/data/UNAM/Air_Pollution_Forecast/Data/MergedDataCSV/Current/2018_cont_otres_AllStations.csv',
+gt_data = pd.read_csv('/data/UNAM/Air_Pollution_Forecast/Data/MergedDataCSV/Current/2019_cont_otres_AllStations.csv',
                       index_col = 0, parse_dates = True)
 nn_data = pd.read_csv('/data/UNAM/Air_Pollution_Forecast/Data/Training/Results/2010_2018_Adam_AllStations_300_300_200_100_100_100_100_100_100_TimeHV_nnprediction.csv',
                       index_col=0, parse_dates=True)

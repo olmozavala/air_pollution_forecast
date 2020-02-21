@@ -34,19 +34,19 @@ def main():
     model_name_user = config[TrainingParams.config_name]
     optimizer = config[TrainingParams.optimizer]
     forecasted_hours = config[LocalTrainingParams.forecasted_hours]
+    years = config[LocalTrainingParams.years]
 
     split_info_folder = join(output_folder, 'Splits')
     parameters_folder = join(output_folder, 'Parameters')
     weights_folder = join(output_folder, 'models')
     logs_folder = join(output_folder, 'logs')
-    imgs_folder= join(output_folder, 'imgs')
     create_folder(split_info_folder)
     create_folder(parameters_folder)
     create_folder(weights_folder)
     create_folder(logs_folder)
 
     data = None
-    for year in range(2010, 2019):
+    for year in years:
         print(F"============ Reading data for {year}: {pollutant} -- AllStations ==========================")
         db_file_name = join(input_folder, F"{year}_{pollutant}_AllStations.csv")
         if data is None:
@@ -65,7 +65,8 @@ def main():
     datetimes_str = data.index.values
 
     data_norm_df_final, accepted_times_idx, y_times_idx, stations_columns, meteo_columns =\
-        normalizeAndFilterData(data, datetimes_str, forecasted_hours)
+        normalizeAndFilterData(data, datetimes_str, forecasted_hours, output_folder=parameters_folder,
+                               run_name=model_name_user, read_from_file=False)
 
     print(F'')
     # X_df = data_norm_df_final.loc[datetimes_str[accepted_times_idx]]

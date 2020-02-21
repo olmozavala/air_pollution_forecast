@@ -33,7 +33,9 @@ def process_files(user_config, all_path_names, all_file_names, all_dates, all_fi
         # Crops the desired variable_names
         try:
             if mode == wrfFileType.new:
+                # In this case we have more than 48 hrs in each file
                 cropped_xr_ds, newLAT, newLon = crop_variables_xr(cur_xr_ds, variable_names, bbox, times=times)
+
             if mode == wrfFileType.old:
                 cur_xr_ds_coords = xr.open_dataset(all_files_coords_old[file_idx])
                 LAT = cur_xr_ds_coords.XLAT.values[0,:,0]

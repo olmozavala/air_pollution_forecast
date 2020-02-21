@@ -26,23 +26,29 @@ def filterDatesWithMeteorologicalData(datetimes, forecasted_hours, num_hours_in_
     print(F"\tFiltering dates...")
     not_meteo_idxs = []
     dates = [cur_datetime.date() for cur_datetime in datetimes]
-    for date_idx, cur_datetime in enumerate(datetimes):
-        cur_date_str = date.strftime(dates[date_idx], constants.date_format.value)
-        cur_hour = datetimes[date_idx].hour
-        # Obtain the name of the required file
-        if cur_hour + forecasted_hours < num_hours_in_netcdf:
-            required_netCDF_file_name = join(WRF_data_folder_name, F"{cur_date_str}.csv")
-        else:
-            # TODO here we should get the next day forecast file
-            required_netCDF_file_name = join(WRF_data_folder_name, F"{cur_date_str}.csv")
+    required_days = int(np.ceil( (forecasted_hours+1)/num_hours_in_netcdf)) # Number of days required for each date
 
-        # Verify the desired file exist (if not it means we don't have meteo data for that pollution variable)
-        if not (os.path.exists(required_netCDF_file_name)):
-            # Reads the proper netcdf file
-            not_meteo_idxs.append(date_idx)
+    for date_idx, cur_datetime in enumerate(datetimes[:-required_days]):
+        for i in range(required_days):
+            cur_date_str = date.strftime(dates[date_idx+i], constants.date_format.value)
+            required_netCDF_file_name = join(WRF_data_folder_name, F"{cur_date_str}.csv")
+            # Verify the desired file exist (if not it means we don't have meteo data for that pollution variable)
+            if not (os.path.exists(required_netCDF_file_name)):
+                # Reads the proper netcdf file
+                not_meteo_idxs.append(date_idx)
 
     return not_meteo_idxs
 
+def getMeteoColumns(file_name, forecasted_hours):
+    """Simple function to get the meteorologica columns from the netcdf and create the 'merged ones' for all
+    the 24 or 'forecasted_hours' """
+    netcdf_data = pd.read_csv(file_name, index_col=0)
+    meteo_columns = netcdf_data.axes[1].values
+    all_meteo_columns = []
+    for cur_forcasted_hour in range(forecasted_hours):
+        for cur_col in meteo_columns:
+            all_meteo_columns.append(F"{cur_col}_h{cur_forcasted_hour}")
+    return meteo_columns, all_meteo_columns
 
 def readMeteorologicalData(datetimes, forecasted_hours, num_hours_in_netcdf, WRF_data_folder_name, tot_examples):
     """
@@ -55,70 +61,51 @@ def readMeteorologicalData(datetimes, forecasted_hours, num_hours_in_netcdf, WRF
     :return:
     """
     # To make it more efficient we verify which netcdf data was loaded previously
-    dates = [cur_datetime.date() for cur_datetime in datetimes]
-    prev_loaded_file = ''
-    next_day_prev_loaded_file = ''
-    append_meteo_colums = True
-    x_data_meteo = None
-    all_meteo_columns = None
     print(F"\tAppending meteorological data...")
+    file_name = join(WRF_data_folder_name, F"{date.strftime(datetimes[0], constants.date_format.value)}.csv")
+    meteo_columns, all_meteo_columns = getMeteoColumns(file_name, forecasted_hours)
+    tot_meteo_columns = len(meteo_columns)
+    x_data_meteo = np.zeros((tot_examples, tot_meteo_columns * forecasted_hours))
+    rainc_cols = [x for x in meteo_columns if x.find('RAINC') != -1]
+    rainnc_cols = [x for x in meteo_columns if x.find('RAINNC') != -1]
+    tot_cols_per_row = tot_meteo_columns * forecasted_hours
+
+    loaded_files = []  # A list off files that have been loaded already
     for date_idx, cur_datetime in enumerate(datetimes):
-        if date_idx % (24*365) == 0:
+        if date_idx % (24*30) == 0:
             print(cur_datetime)
 
-        cur_date_str = date.strftime(dates[date_idx], constants.date_format.value)
+        # The + 1 is required to process variables like RAINC which needs the next hour
+        required_days_to_read = int(np.ceil((forecasted_hours+1)/num_hours_in_netcdf))
+        required_files = []
+        for day_idx in range(required_days_to_read):
+            cur_date_str = date.strftime(datetimes[date_idx] + np.timedelta64(day_idx, 'D'), constants.date_format.value)
+            netcdf_file = join(WRF_data_folder_name, F"{cur_date_str}.csv")
+            required_files.append(netcdf_file)
+
+        # Loading all the required files for this date
+        files_not_loaded = [x for x in required_files if x not in loaded_files]
+
+        if len(files_not_loaded) > 0:
+            loaded_files = []  # clear the list of loaded files
+            for file_idx, cur_file in enumerate(required_files):
+                if len(loaded_files) == 0:  # Only when we don't have any useful file already loaded
+                    netcdf_data = pd.read_csv(cur_file, index_col=0)
+                else:
+                    # Remove all dates
+                    netcdf_data = netcdf_data.append(pd.read_csv(cur_file, index_col=0))
+                loaded_files.append(cur_file)
+
+            # --------------------- Preprocess RAINC and RAINNC--------------------
+            netcdf_data.loc[:-1, rainc_cols] = netcdf_data[1:][rainc_cols].values - netcdf_data[:-1][rainc_cols].values
+            netcdf_data.loc[:-1, rainnc_cols] = netcdf_data[1:][rainnc_cols].values - netcdf_data[:-1][rainnc_cols].values
+            np_flatten_data = netcdf_data.values.flatten()
+
         cur_hour = datetimes[date_idx].hour
-
-        # Obtain the name of the necdf file or files (if we need data from two files)
-        required_netCDF_file_name = join(WRF_data_folder_name, F"{cur_date_str}.csv")
-        next_day_netCDF_file_name = required_netCDF_file_name
-        if cur_hour + forecasted_hours > num_hours_in_netcdf:
-            if (date_idx + 1) < len(datetimes): # Simple validation of the last date
-                cur_date_str = date.strftime(datetimes[date_idx] + np.timedelta64(1, 'D'), constants.date_format.value)
-                next_day_netCDF_file_name = join(WRF_data_folder_name, F"{cur_date_str}.csv")
-            else:
-                continue
-
-        # Verify the desired file exist (if not it means we don't have meteo data for that pollution variable)
-        if os.path.exists(required_netCDF_file_name) & os.path.exists(next_day_netCDF_file_name):
-            # Reads the proper netcdf file
-            if required_netCDF_file_name != prev_loaded_file:
-                # print(F"\t\t Reading {required_netCDF_file_name}...")
-                prev_loaded_file = required_netCDF_file_name
-                netcdf_data = pd.read_csv(required_netCDF_file_name, index_col=0)
-                meteo_data = netcdf_data.values.flatten()
-
-            # === TODO this is executed only once, move outsite the loop Adding additional columns into the final dataframe, not sure if there is a faster way
-            if append_meteo_colums:
-                meteo_columns = netcdf_data.axes[1].values
-                tot_meteo_columns = len(meteo_columns)
-                x_data_meteo = np.zeros((tot_examples, tot_meteo_columns * forecasted_hours))
-                all_meteo_columns = []
-                for cur_forcasted_hour in range(forecasted_hours):
-                    for cur_col in meteo_columns:
-                        all_meteo_columns.append(F"{cur_col}_h{cur_forcasted_hour}")
-                append_meteo_colums = False
-
-            tot_cols_per_row = tot_meteo_columns * forecasted_hours
-            if cur_hour + forecasted_hours > num_hours_in_netcdf:
-                if next_day_prev_loaded_file != next_day_netCDF_file_name:
-                    next_day_prev_loaded_file = next_day_netCDF_file_name
-                    next_day_netcdf_data = pd.read_csv(next_day_netCDF_file_name, index_col=0)
-                    next_day_meteo_data = next_day_netcdf_data.values.flatten()
-
-                # Appends the meteo data into the proper row of the database
-                start_idx = cur_hour * tot_meteo_columns  # First column to copy from the current day
-                end_idx = tot_meteo_columns * (forecasted_hours - cur_hour)
-                x_data_meteo[date_idx, :end_idx] = meteo_data[start_idx: start_idx+tot_cols_per_row]
-                start_idx = end_idx
-                end_idx = (num_hours_in_netcdf - forecasted_hours + cur_hour) * tot_meteo_columns  # Last column to copy from the next day
-                x_data_meteo[date_idx, start_idx:] = next_day_meteo_data[:end_idx]
-            else:
-                start_idx = cur_hour * tot_meteo_columns  # First column to copy from the current day
-                end_idx = start_idx + tot_cols_per_row
-                x_data_meteo[date_idx, :] = meteo_data[start_idx:end_idx]
-
-            # print(F"{start_idx} - {end_idx}")
+        start_idx = cur_hour * tot_meteo_columns  # First column to copy from the current day
+        end_idx = start_idx + tot_cols_per_row
+        # print(F"{start_idx} - {end_idx}")
+        x_data_meteo[date_idx, :] = np_flatten_data[start_idx:end_idx]
 
     return x_data_meteo, all_meteo_columns
 
@@ -178,7 +165,7 @@ def merge_by_year(config):
             # end_date = F'{current_year}-01-05'
             end_date = F'{current_year+1}-01-01'
             datetimes = pd.to_datetime(data_pollutants.index)
-            not_valid_dates = np.logical_not( (datetimes >= np.datetime64(start_date)) & (datetimes < np.datetime64(end_date)))
+            not_valid_dates = np.logical_not((datetimes >= np.datetime64(start_date)) & (datetimes < np.datetime64(end_date)))
             data_pollutants_filtered = data_pollutants.drop(data_pollutants.index[not_valid_dates])
             # Reloading the dates
             datetimes = pd.to_datetime(data_pollutants_filtered.index)
@@ -283,4 +270,7 @@ if __name__ == '__main__':
     config = getMergeParams()
     # merge_by_station(config)
     merge_by_year(config)
+
+
+##
 

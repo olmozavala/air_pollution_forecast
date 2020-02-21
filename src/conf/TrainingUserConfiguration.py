@@ -42,9 +42,9 @@ def getMergeParams():
         MergeFilesParams.pollutant_tables: ["cont_otres"],
         MergeFilesParams.forecasted_hours: 24,
         LocalTrainingParams.tot_num_quadrants: 64,
-        LocalTrainingParams.num_hours_in_netcdf: 72,
+        LocalTrainingParams.num_hours_in_netcdf: 24, # 72 (forecast)
         MergeFilesParams.output_folder: join(output_folder, constants.merge_output_folder.value),
-        MergeFilesParams.years: range(2018,2020)
+        MergeFilesParams.years: range(2010,2018)
     }
 
     return cur_config
@@ -71,8 +71,9 @@ def getTrainingParams():
         #  , "XCH"],
         LocalTrainingParams.pollutant: "cont_otres",
         LocalTrainingParams.forecasted_hours: 24,
-        LocalTrainingParams.tot_num_quadrants: 64,  # 4x4
-        LocalTrainingParams.num_hours_in_netcdf: 24
+        LocalTrainingParams.tot_num_quadrants: 64,  # 8x8
+        LocalTrainingParams.num_hours_in_netcdf: 24,
+        LocalTrainingParams.years: range(2010, 2019)
     }
     return append_model_params(cur_config)
 
@@ -83,11 +84,11 @@ def get_makeprediction_config():
     models_folder = join(training_output_folder, 'models')
     splits_folder = join(training_output_folder, 'Splits')
     # model_file = 'Relu_Sigmoid_2020_02_10_19_35_cont_otres_AllStations-480-0.00447.hdf5'
-    run_name  = '2010_2018_Adam_AllStations_300_300_200_100_100_100_100_100_100_TimeHV_2020_02_18_18_45_cont_otres_AllStations'
-    model_file = F'{run_name}-93-0.00203.hdf5'
+    run_name  = '2010_2018_Adam_AllStations_300_300_200_100_100_100_100_100_100_TimeHV_2020_02_20_22_47_cont_otres_AllStations'
+    model_file = F'{run_name}-190-0.00212.hdf5'
     cur_config = {
         ClassificationParams.input_file: join(output_folder, constants.merge_output_folder.value, merged_specific_folder,
-                                              '2018_cont_otres_AllStations.csv'),
+                                              '2019_cont_otres_AllStations.csv'),
         ClassificationParams.output_folder: F"{join(output_folder, results_folder)}",
         ClassificationParams.model_weights_file: join(models_folder, model_file),
         # ClassificationParams.split_file: join(splits_folder, F"{run_name}.csv"),

@@ -1,22 +1,17 @@
 from datetime import datetime, timedelta
 
 from img_viz.eoa_viz import EOAImageVisualizer
-from sklearn import preprocessing
 from conf.localConstants import constants
-import os
-from pandas import DataFrame
+import numpy as np
+from os.path import join, dirname
 import pandas as pd
-import time
 from constants.AI_params import ModelParams, ClassificationParams, TrainingParams
-from os.path import join
 from conf.params import LocalTrainingParams
 
 from conf.TrainingUserConfiguration import get_makeprediction_config
 from inout.io_common import  create_folder
 from data_generation.utilsDataFormat import *
 from models.modelSelector import select_1d_model
-from metrics import numpy_dice
-from os import listdir
 from proj_preproc.preproc import normalizeAndFilterData, deNormalize, generate_date_hot_vector
 from proj_prediction.prediction import compute_metrics
 
@@ -35,6 +30,7 @@ def main():
     forecasted_hours = config[LocalTrainingParams.forecasted_hours]
     disp_images = config[ClassificationParams.show_imgs]
     metrics_user = config[ClassificationParams.metrics]
+
 
 
     # Iterate over the stations
@@ -57,8 +53,10 @@ def main():
     print("Done!")
 
     print(F'Normalizing and filtering data....')
+    parameters_folder = join(dirname(output_folder), 'Training','Parameters')
     data_norm_df_final, accepted_times_idx, y_times_idx, stations_columns, meteo_columns = \
-        normalizeAndFilterData(data, datetimes_str, forecasted_hours)
+        normalizeAndFilterData(data, datetimes_str, forecasted_hours, output_folder=parameters_folder,
+                               run_name=run_name, read_from_file=True)
 
     X = data_norm_df_final.loc[datetimes_str[accepted_times_idx]]
     Y = data_norm_df_final.loc[datetimes_str[y_times_idx]][stations_columns]
@@ -84,12 +82,25 @@ def main():
     print('Reading weights ....')
     model.load_weights(model_weights_file)
 
-    create_folder(output_folder)
-    create_folder(output_imgs_folder)
 
     # ************ Makes NN Prediction ********
     print('Making prediction ....')
     output_nn_all = model.predict(X, verbose=1)
+
+    # ************ Saves raw results ********
+    number_of_examples = 10
+    img_viz = EOAImageVisualizer(output_folder=output_imgs_folder, disp_images=False)
+    for c_example in range(number_of_examples):
+        hours_to_plot = 24*3 # How many points to plot
+        start_idx = np.random.randint(0, X.shape[0] - hours_to_plot - forecasted_hours)
+        end_idx = start_idx + hours_to_plot
+        create_folder(output_folder)
+        create_folder(output_imgs_folder)
+        for idx_station, cur_station in enumerate(stations_columns):
+            img_viz.plot_1d_data_np(datetimes_str[y_times_idx][start_idx:end_idx],
+                                    [Y[start_idx:end_idx][cur_station].values,
+                                     output_nn_all[start_idx:end_idx, idx_station]],
+                                   title=F'{cur_station}', labels=['GT', 'NN'], file_name_prefix=F'{cur_station}_{c_example}')
 
     # ************ Recovering original units********
     print('Recovering original units....')
