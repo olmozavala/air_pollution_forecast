@@ -24,7 +24,7 @@ def main():
     config = getTrainingParams()
     # =============== Read data and merge meteorological variables===============
     print("Reading data")
-    station = config[LocalTrainingParams.station]
+    station = config[LocalTrainingParams.stations]
     pollutant = config[LocalTrainingParams.pollutant]
     # Iterate over all pollutants
     # for cur_pollutant in pollutants:

@@ -14,26 +14,31 @@ _max_value_ozone = 250
 def generate_date_hot_vector(datetimes_original):
     # datetimes = [datetime.strptime(x, '%Y-%m-%d %H:%M:%S') for x in datetimes_original]
     datetimes = datetimes_original
-    day_hv = 7
+    week_day_hv = 7
+    week_year_hv = 51
     hour_hv = 24
-    year_v = 1  # In this case we will generate a value from 0 to 1 where 0 is 1980 and 1 is 2050
+    year_hv = 1  # In this case we will generate a value from 0 to 1 where 0 is 1980 and 1 is 2050
     min_year = 1980
     max_year = 2040
 
-    out_dates_hv = np.zeros((len(datetimes), day_hv+hour_hv+year_v))
+    out_dates_hv = np.zeros((len(datetimes), week_day_hv + hour_hv + year_hv + week_year_hv))
     for i, cur_dt in enumerate(datetimes):
-        year_v = (cur_dt.year - min_year)/(max_year-min_year)
+        year_hv = (cur_dt.year - min_year)/(max_year-min_year)
         week_day = calendar.weekday(cur_dt.year, cur_dt.month, cur_dt.day)
-        day_hv = [1 if x == week_day else 0 for x in range(7)]
+        week_day_hv = [1 if x == week_day else 0 for x in range(7)]
         hour = cur_dt.hour
         hour_hv = [1 if x == hour else 0 for x in range(24)]
-        out_dates_hv[i,0] = year_v
-        out_dates_hv[i,1:8] = day_hv
-        out_dates_hv[i,8:35] = hour_hv
+        week_year = cur_dt.date().isocalendar()[1]
+        week_year_hv = [1 if x == week_year else 0 for x in range(51)]
+        out_dates_hv[i,0] = year_hv
+        out_dates_hv[i,1:8] = week_day_hv
+        out_dates_hv[i,8:32] = hour_hv
+        out_dates_hv[i,32:83] = week_year_hv
 
-    day_strs = [F'week_{x}' for x in range(7)]
+    day_strs = [F'week_day_{x}' for x in range(7)]
     hour_strs = [F'hour_{x}' for x in range(24)]
-    column_names = ['year'] + day_strs + hour_strs
+    week_strs = [F'week_{x}' for x in range(51)]
+    column_names = ['year'] + day_strs + hour_strs + week_strs
     dates_hv_df = pd.DataFrame(out_dates_hv, columns=column_names, index=datetimes_original)
     return dates_hv_df
 
@@ -57,19 +62,38 @@ def normalizeAndFilterData(data, datetimes_orig, forecasted_hours, output_folder
 
     # Normalizing meteorological variables
     # In this case we obtain the normalization values directly from the data
+    # meteo_names = ['U10', 'V10', 'RAINC', 'T2', 'RAINNC', 'PBLH', 'SWDOWN', 'GLW']
+    meteo_names = ['U10', 'V10', 'RAINC', 'T2', 'RAINNC', 'SWDOWN', 'GLW']
     if not(read_from_file):
-        min_values_meteo = data[meteo_columns].min()
-        max_values_meteo = data[meteo_columns].max()
+        min_data = {}
+        max_data = {}
+        for cur_meteo in meteo_names:
+            cur_meteo_cols = [x for x in meteo_columns if x.find(cur_meteo) != -1]
+            min_data[cur_meteo] = data[cur_meteo_cols].min().min()
+            max_data[cur_meteo] = data[cur_meteo_cols].max().max()
         # ********* Saving normalization values for each variable ******
         create_folder(output_folder)
-        min_values_meteo.to_csv(join(output_folder,F'{run_name}_min_values.csv'))
-        max_values_meteo.to_csv(join(output_folder,F'{run_name}_max_values.csv'))
+        pd.DataFrame(min_data, index=[1]).to_csv(join(output_folder,F'{run_name}_min_values.csv'))
+        pd.DataFrame(max_data, index=[1]).to_csv(join(output_folder,F'{run_name}_max_values.csv'))
     else: # In this case we obtain the normalization values from the provided file
-        min_values_meteo = pd.read_csv(join(output_folder,F'{run_name}_min_values.csv'), names=['Min'], squeeze=True)
-        max_values_meteo = pd.read_csv(join(output_folder,F'{run_name}_max_values.csv'), names=['Max'], squeeze=True)
+        min_data = pd.read_csv(join(output_folder,F'{run_name}_min_values.csv'), index_col=0)
+        max_data = pd.read_csv(join(output_folder,F'{run_name}_max_values.csv'), index_col=0)
 
     data_norm_df = data.copy()
-    data_norm_df[meteo_columns] = (data_norm_df[meteo_columns] - min_values_meteo)/(max_values_meteo - min_values_meteo)
+
+    # Normalizing the meteorological variables
+    for cur_meteo in meteo_names:
+        cur_meteo_cols = [x for x in meteo_columns if x.find(cur_meteo) != -1]
+        # The data structure is a little bit different when reading from the file
+        if not (read_from_file):
+            min_val = min_data[cur_meteo]
+            max_val = max_data[cur_meteo]
+        else:
+            min_val = min_data[cur_meteo].values[0]
+            max_val = max_data[cur_meteo].values[0]
+        data_norm_df[cur_meteo_cols] = (data_norm_df[cur_meteo_cols] - min_val)/(max_val - min_val)
+
+    # Normalizing the pollution variables
     data_norm_df[stations_columns] = (data_norm_df[stations_columns] - _min_value_ozone)/(_max_value_ozone - _min_value_ozone)
     print(F'Done!')
 
@@ -86,13 +110,13 @@ def normalizeAndFilterData(data, datetimes_orig, forecasted_hours, output_folder
     # ****************** Replacing nan columns with the mean value of all the other columns ****************
     mean_values = data_norm_df[stations_columns].mean(1)
 
-    # TODO aqui mero hay que poner -1 donde no haya datos y generar otra columna que se llame mean
-    # El reemplazo se tendra que hacer cuando se generan las X y las Y
-
+    # Replace nan values with -1 and add additional MEAN column
     print(F"Filling nan values....")
     data_norm_df_final = data_norm_df.copy()
     for cur_station in stations_columns:
-        data_norm_df_final[cur_station] = data_norm_df[cur_station].fillna(mean_values)
+        data_norm_df_final[cur_station] = data_norm_df[cur_station].fillna(-1)
+
+    data_norm_df_final['MEAN'] = mean_values
 
     # print(F"Norm params: {scaler.get_params()}")
     # file_name_normparams = join(parameters_folder, F'{model_name}.txt')

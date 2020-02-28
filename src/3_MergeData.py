@@ -78,10 +78,18 @@ def readMeteorologicalData(datetimes, forecasted_hours, num_hours_in_netcdf, WRF
         # The + 1 is required to process variables like RAINC which needs the next hour
         required_days_to_read = int(np.ceil((forecasted_hours+1)/num_hours_in_netcdf))
         required_files = []
+        files_available = True
         for day_idx in range(required_days_to_read):
             cur_date_str = date.strftime(datetimes[date_idx] + np.timedelta64(day_idx, 'D'), constants.date_format.value)
             netcdf_file = join(WRF_data_folder_name, F"{cur_date_str}.csv")
-            required_files.append(netcdf_file)
+            if not(os.path.exists(netcdf_file)):
+                files_available = False
+                break
+            else:
+                required_files.append(netcdf_file)
+
+        if not(files_available):
+            break
 
         # Loading all the required files for this date
         files_not_loaded = [x for x in required_files if x not in loaded_files]
@@ -99,6 +107,9 @@ def readMeteorologicalData(datetimes, forecasted_hours, num_hours_in_netcdf, WRF
             # --------------------- Preprocess RAINC and RAINNC--------------------
             netcdf_data.loc[:-1, rainc_cols] = netcdf_data[1:][rainc_cols].values - netcdf_data[:-1][rainc_cols].values
             netcdf_data.loc[:-1, rainnc_cols] = netcdf_data[1:][rainnc_cols].values - netcdf_data[:-1][rainnc_cols].values
+            # The last day between the years gets messed up, fix it by setting rain to 0
+            netcdf_data[rainc_cols].where(netcdf_data[rainc_cols] <= 0, 0)
+            netcdf_data[rainnc_cols].where(netcdf_data[rainnc_cols] <= 0, 0)
             np_flatten_data = netcdf_data.values.flatten()
 
         cur_hour = datetimes[date_idx].hour

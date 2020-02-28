@@ -35,6 +35,9 @@ def main():
     optimizer = config[TrainingParams.optimizer]
     forecasted_hours = config[LocalTrainingParams.forecasted_hours]
     years = config[LocalTrainingParams.years]
+    debugging = config[LocalTrainingParams.debug]
+    filter_stations = config[LocalTrainingParams.stations]
+    filter_dates = config[LocalTrainingParams.filter_dates]
 
     split_info_folder = join(output_folder, 'Splits')
     parameters_folder = join(output_folder, 'Parameters')
@@ -45,36 +48,67 @@ def main():
     create_folder(weights_folder)
     create_folder(logs_folder)
 
+
     data = None
     for year in years:
         print(F"============ Reading data for {year}: {pollutant} -- AllStations ==========================")
-        db_file_name = join(input_folder, F"{year}_{pollutant}_AllStations.csv")
-        if data is None:
-            data = pd.read_csv(db_file_name, index_col=0, parse_dates=True)
+        if debugging:
+            db_file_name = join(input_folder, F"{year}_{pollutant}_AllStationsDebug.csv")
         else:
-            data = data.append(pd.read_csv(db_file_name, index_col=0, parse_dates=True))
+            db_file_name = join(input_folder, F"{year}_{pollutant}_AllStations.csv")
+
+        temp = pd.read_csv(db_file_name, index_col=0, parse_dates=True)
+        if data is None:
+            all_data_cols = temp.columns
+            date_columns = [x for x in all_data_cols if (x.find('week') != -1) or (x.find('hour') != -1) or (x.find('year') != -1)]
+            stations_columns = [x for x in all_data_cols if (x.find('h') == -1) and (x not in date_columns)]
+            meteo_columns = [x for x in all_data_cols if (x.find('h') != -1) and (x not in date_columns) and (x not in stations_columns)]
+            desired_columns = meteo_columns + filter_stations + date_columns
+            data = temp[desired_columns]
+        else:
+            data = data.append(temp[desired_columns])
 
     print("Appending date hot vector...")
     date_hv = generate_date_hot_vector(data.index)
     data = pd.concat([data, date_hv], axis=1)
     print("Done!")
 
-    config[ModelParams.INPUT_SIZE] = len(data.columns)
-    print(F'Data shape: {data.shape} Data axes {data.axes}')
-    print("Done!")
-    datetimes_str = data.index.values
+    # ********** Restricting only data between the hours of 9 to 20 TODO hardoded *****
+    if filter_dates:
+        filtered_data = data.between_time("9:00", "20:00")
+    else:
+        filtered_data = data
+    datetimes_str = filtered_data.index.values
 
     data_norm_df_final, accepted_times_idx, y_times_idx, stations_columns, meteo_columns =\
-        normalizeAndFilterData(data, datetimes_str, forecasted_hours, output_folder=parameters_folder,
+        normalizeAndFilterData(filtered_data, datetimes_str, forecasted_hours, output_folder=parameters_folder,
                                run_name=model_name_user, read_from_file=False)
 
-    print(F'')
-    # X_df = data_norm_df_final.loc[datetimes_str[accepted_times_idx]]
-    # Y_df = data_norm_df_final.loc[datetimes_str[y_times_idx]][stations_columns]
+    X_df = data_norm_df_final.loc[datetimes_str[accepted_times_idx]]
+    Y_df = data_norm_df_final.loc[datetimes_str[y_times_idx]][stations_columns]
 
-    X = data_norm_df_final.loc[datetimes_str[accepted_times_idx]].values
-    Y = data_norm_df_final.loc[datetimes_str[y_times_idx]][stations_columns].values
+    # ********* Filling nan values in the stations with the mean values of all the 'available' stations ********
+    # for cur_station in stations_columns:
+    #     X_df[cur_station] = X_df[cur_station].fillna(X_df['MEAN'])
+    #     Y_df[cur_station] = Y_df[cur_station].fillna(data_norm_df_final.loc[datetimes_str[y_times_idx]]['MEAN'])
 
+    # X = data_norm_df_final.loc[datetimes_str[accepted_times_idx]].values
+    # X_df = X_df.drop(columns=['MEAN'])
+    X_df = X_df.drop(columns=stations_columns)
+    X = X_df.values
+    # Y = data_norm_df_final.loc[datetimes_str[y_times_idx]][stations_columns].values
+    Y = Y_df.values
+
+    # ****** Bootstrap everything above 60 ppts TODO hardoded
+    idx_by_col = Y_df > 0.24
+    idx_above = idx_by_col.any(axis=1)
+    # butstrap_size = 5 # How many times are we repeating the 'high' values
+    # for i in range(butstrap_size):
+    Y = np.append(Y, Y[idx_above, :], axis=0)
+    X = np.append(X, X[idx_above, :], axis=0)
+
+    config[ModelParams.INPUT_SIZE] = len(X_df.columns)
+    print(F'Data shape: {filtered_data.shape} Data axes {filtered_data.axes}')
     print(F'X shape: {X.shape} Y shape: {Y.shape}')
 
     tot_examples = X.shape[0]

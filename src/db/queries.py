@@ -1,6 +1,7 @@
 from datetime import date
 import geopandas as pd
 from geopandas import GeoDataFrame
+from pandas import DataFrame
 
 def getPollutantFromDateRange(conn, table, start_date, end_date, stations):
     """ Gets all the table names of our DB"""
@@ -38,3 +39,42 @@ def getAllStationsTxtGeom(conn, lastyear=date.today().year):
     cur.close()
 
     return rows
+
+def getCountValidData(conn, year, sinceYear=False):
+    """ Counts the number of valid data per station
+    :param conn:
+    :param year:
+    :param station:
+    :return:
+    """
+    cur = conn.cursor();
+    if sinceYear:
+        sql = F"""SELECT id_est, COUNT(*) FROM cont_otres 
+                WHERE date_part('year',fecha) >= {year} and 
+                date_part('year',fecha) <= {2017}
+                    GROUP BY id_est"""
+    else:
+        sql = F"""SELECT id_est, COUNT(*) FROM cont_otres 
+                WHERE date_part('year',fecha) = {year} GROUP BY id_est"""
+
+    cur.execute(sql)
+    rows = cur.fetchall()
+    cur.close()
+
+    return DataFrame(rows, columns=['id_est', 'value'])
+
+def getMaxDailySQL(conn, year):
+    cur = conn.cursor();
+    sql = F""" SELECT max(val) as mval, 
+                 date_part('day',fecha) as dia, 
+                  date_part('month',fecha) as mes, 
+                  date_part('year',fecha) as anio
+              FROM cont_otres
+              WHERE date_part('year',fecha) = {year}
+              GROUP BY dia,mes,anio
+              ORDER BY anio,mes,dia"""
+    cur.execute(sql)
+    rows = cur.fetchall()
+    cur.close()
+
+    return DataFrame(rows, columns=['max', 'day', 'month', 'year'])

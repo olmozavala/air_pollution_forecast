@@ -40,7 +40,7 @@ def getTrainingParams():
         TrainingParams.epochs: 5000,
         TrainingParams.config_name: _run_name,
         TrainingParams.data_augmentation: False,
-        LocalTrainingParams.station: "STATION",
+        LocalTrainingParams.stations: "STATION",
         # LocalTrainingParams.station: ["ACO", "AJM", "AJU", "ARA", "ATI", "AZC", "BJU", "CAM", "CCA", "CES", "CFE", "CHO", "COR", "COY", "CUA"
         #  ,"CUI", "CUT", "DIC", "EAJ", "EDL", "FAC", "FAN", "GAM", "HAN", "HGM", "IBM", "IMP", "INN", "IZT", "LAA", "LAG", "LLA"
         #  ,"LOM", "LPR", "LVI", "MCM", "MER", "MGH", "MIN", "MON", "MPA", "NET", "NEZ", "PED", "PER", "PLA", "POT", "SAG", "SFE"

@@ -1,4 +1,6 @@
 import json
+from constants.AI_params import VisualizationResultsParams, TrainingParams
+from conf.TrainingUserConfiguration import get_visualization_config
 import dash_bootstrap_components as dbc
 from textwrap import dedent as d
 
@@ -16,6 +18,7 @@ from datetime import date
 from datetime import date, timedelta
 from datetime import datetime as dt
 from viz.layout import get_layout
+from viz.figure_generator import get_default_figure
 
 import geopandas as geopd
 import pandas as pd
@@ -34,17 +37,12 @@ styles = {
     }
 }
 
-print("Reading data....")
-# gt_data = pd.read_csv('/data/UNAM/Air_Pollution_Forecast/Data/MergedDataCSV/Current/2010_cont_otres_AllStationsDebug.csv',
-#                       index_col=0, parse_dates=True)
-gt_data = pd.read_csv('/data/UNAM/Air_Pollution_Forecast/Data/MergedDataCSV/Current/2019_cont_otres_AllStations.csv',
-                      index_col = 0, parse_dates = True)
-nn_data = pd.read_csv('/data/UNAM/Air_Pollution_Forecast/Data/Training/Results/2010_2018_Adam_AllStations_300_300_200_100_100_100_100_100_100_TimeHV_nnprediction.csv',
-                      index_col=0, parse_dates=True)
-
-metrics_data = pd.read_csv('/data/UNAM/Air_Pollution_Forecast/Data/Training/Results/2010_2018_Adam_AllStations_300_300_200_100_100_100_100_100_100_TimeHV.csv',
-                           index_col=0, parse_dates=True)
-
+config = get_visualization_config()
+run_name = config[TrainingParams.config_name]
+print(F"Reading data {config[VisualizationResultsParams.gt_data_file]}....")
+gt_data = pd.read_csv(config[VisualizationResultsParams.gt_data_file], index_col = 0, parse_dates = True)
+nn_data = pd.read_csv(config[VisualizationResultsParams.nn_output], index_col=0, parse_dates=True)
+metrics_data = pd.read_csv(config[VisualizationResultsParams.nn_metrics], index_col=0, parse_dates=True)
 print("Done!")
 
 desired_dates = nn_data.index
@@ -59,7 +57,7 @@ default_date = desired_dates[0]
 default_station = stations[0]
 time_range = 1
 
-app = get_layout(default_date, stations_geodf)
+app = get_layout(default_date, stations_geodf, gt_data, nn_data, run_name)
 
 
 @app.callback(
@@ -127,108 +125,25 @@ def display_figure(hoverData, cur_date, selectedData):
     except Exception as e:
         return getEmptyFigure(name), getEmptyFigure(name), getEmptyFigure(name)
 
-    figure_metrics = {
-        'data': getMetrics(data_metrics)
-        ,
-        'layout': {
-            'title': F'{pollutant} around {cur_date.strftime("%B %d, %Y")}',
-            'clickmode': 'event+select',
-            'legend': {
-                'x': 1,
-                'y': 1
-            },
-        }
-    }
-
-    figure_merged = {
-        'data': getDataMerged(data_gt, data_nn),
-        'layout': {
-            'title': F'{pollutant} around {cur_date.strftime("%B %d, %Y")}',
-            'clickmode': 'event+select',
-            'legend': {
-                'x': 1,
-                'y': 1
-            },
-            'yaxis':{
-                'range': [0,150],
-            }
-        }
-    }
-    figure_nn = {
-        'data': getDataSingle(data_nn, append_txt='NN'),
-        'layout': {
-            'title': F'NN {pollutant} around {cur_date.strftime("%B %d, %Y")}',
-            'clickmode': 'event+select',
-            'legend': {
-                'x': 1,
-                'y': 1
-            },
-            'yaxis': {
-                'range': [0, 150],
-            }
-        }
-    }
-    figure_gt = {
-        'data': getDataSingle(data_gt, append_txt='GT'),
-        'layout': {
-            'title': F'GT {pollutant} around {cur_date.strftime("%B %d, %Y")}',
-            'clickmode': 'event+select',
-            'legend': {
-                'x': 1,
-                'y': 1
-            },
-            'yaxis': {
-                'range': [0, 150],
-            }
-        }
-    }
-
+    date_display = "%A, %B %d, %Y"
+    figure_metrics = get_default_figure(getMetrics(data_metrics),
+                                        title=F'{pollutant} around {cur_date.strftime(date_display)}')
+    figure_merged =get_default_figure(getDataMerged(data_gt, data_nn),
+                                      title=F'{pollutant} around {cur_date.strftime(date_display)}',
+                                      range=[0,150])
+    figure_nn = get_default_figure(getDataSingle(data_nn, append_txt='NN'),
+                                   title= F'NN {pollutant} around {cur_date.strftime(date_display)}',
+                                   range=[0, 150])
+    figure_gt = get_default_figure(getDataSingle(data_gt, append_txt='GT'),
+                                   title=F'GT {pollutant} around {cur_date.strftime(date_display)}',
+                                   range=[0, 150])
     start_date = start_date - timedelta(hours=24)
     end_date = end_date - timedelta(hours=24)
-    figure_U = {
-        'data': getMeteoData(gt_data[start_date:end_date], 'U'),
-        'layout': {
-            'title': 'U',
-            'clickmode': 'event+select',
-            'legend': {
-                'x': 1,
-                'y': 1
-            },
-        }
-    }
-    figure_V = {
-        'data': getMeteoData(gt_data[start_date:end_date], 'V'),
-        'layout': {
-            'title': 'V',
-            'clickmode': 'event+select',
-            'legend': {
-                'x': 1,
-                'y': 1
-            },
-        }
-    }
-    figure_RAINC = {
-        'data': getMeteoData(gt_data[start_date:end_date], 'RAINC'),
-        'layout': {
-            'title': 'RAINC',
-            'clickmode': 'event+select',
-            'legend': {
-                'x': 1,
-                'y': 1
-            },
-        }
-    }
-    figure_Temp = {
-        'data': getMeteoData(gt_data[start_date:end_date], 'T2'),
-        'layout': {
-            'title': 'Temp',
-            'clickmode': 'event+select',
-            'legend': {
-                'x': 1,
-                'y': 1
-            },
-        }
-    }
+    figure_U = get_default_figure(getMeteoData(gt_data[start_date:end_date], 'U'), title='U')
+    figure_V = get_default_figure(getMeteoData(gt_data[start_date:end_date], 'V'), title='V')
+    figure_RAINC = get_default_figure(getMeteoData(gt_data[start_date:end_date], 'RAINC'), title='RAINC')
+    figure_Temp = get_default_figure(getMeteoData(gt_data[start_date:end_date], 'T2'), title='Temperature')
+
     return figure_metrics, figure_merged, figure_nn, figure_gt, figure_U, figure_V, figure_RAINC, figure_Temp,
 
 
@@ -357,4 +272,4 @@ def getEmptyFigure(name):
 
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=True, port=8051)

@@ -36,9 +36,11 @@ class MergeFilesParams(Enum):
 
 class LocalTrainingParams(Enum):
     pollutant = 1
-    station = 2
+    stations = 2
     forecasted_hours = 7  # Which hour we want to forecaste
     tot_num_quadrants = 8  # How many quadrants are we using for the weather data
     num_hours_in_netcdf = 9  # How many hours were stored in the netcdf file
-    years = 10 # Years to use for the training (array)
+    years = 10  # Years to use for the training (array)
+    debug = 11  # Indicator if we are debugging the code
+    filter_dates = 12  # Filters the training dates between 9 and 20
 

@@ -29,37 +29,59 @@ def main():
     model_weights_file = config[ClassificationParams.model_weights_file]
     forecasted_hours = config[LocalTrainingParams.forecasted_hours]
     disp_images = config[ClassificationParams.show_imgs]
+    generate_images = config[ClassificationParams.generate_images]
     metrics_user = config[ClassificationParams.metrics]
-
-
+    filter_stations = config[LocalTrainingParams.stations]
 
     # Iterate over the stations
     # Selects the proper model file for the current station
     assert len(model_weights_file) > 0
     assert len(input_file) > 0
 
-    print(F"Working with: {model_weights_file} and {input_file}")
+    print(F"Working with: {model_weights_file} \n and \n {input_file}")
 
     data = pd.read_csv(input_file, index_col=0, parse_dates=True)
-    datetimes_str = data.index.values
+
+    all_data_cols = data.columns
+    date_columns = [x for x in all_data_cols if (x.find('week') != -1) or (x.find('hour') != -1) or (x.find('year') != -1)]
+    stations_columns = [x for x in all_data_cols if (x.find('h') == -1) and (x not in date_columns)]
+    meteo_columns = [x for x in all_data_cols if (x.find('h') != -1) and (x not in date_columns) and (x not in stations_columns)]
+    desired_columns = meteo_columns + filter_stations + date_columns
 
     print("Appending date hot vector...")
     date_hv = generate_date_hot_vector(data.index)
-    data = pd.concat([data, date_hv], axis=1)
+    data = pd.concat([data[desired_columns], date_hv], axis=1)
     print("Done!")
 
-    config[ModelParams.INPUT_SIZE] = len(data.columns)
-    print(F'Data shape: {data.shape} Data axes {data.axes}')
-    print("Done!")
+    # print("Filtering data to hours 9 to 20...")
+    filtered_data =data.between_time("9:00", "20:00")
+    # filtered_data = data
+    datetimes_str = filtered_data.index.values
+    # print("Done!")
 
     print(F'Normalizing and filtering data....')
     parameters_folder = join(dirname(output_folder), 'Training','Parameters')
     data_norm_df_final, accepted_times_idx, y_times_idx, stations_columns, meteo_columns = \
-        normalizeAndFilterData(data, datetimes_str, forecasted_hours, output_folder=parameters_folder,
+        normalizeAndFilterData(filtered_data, datetimes_str, forecasted_hours, output_folder=parameters_folder,
                                run_name=run_name, read_from_file=True)
 
-    X = data_norm_df_final.loc[datetimes_str[accepted_times_idx]]
-    Y = data_norm_df_final.loc[datetimes_str[y_times_idx]][stations_columns]
+    # ********* Filling nan values in the stations with the mean values of all the 'available' stations ********
+    X_df = data_norm_df_final.loc[datetimes_str[accepted_times_idx]]
+    Y_df = data_norm_df_final.loc[datetimes_str[y_times_idx]][stations_columns]
+
+    # ********* Filling nan values in the stations with the mean values of all the 'available' stations ********
+    # for cur_station in stations_columns:
+    #     X_df[cur_station] = X_df[cur_station].fillna(X_df['MEAN'])
+    #     Y_df[cur_station] = Y_df[cur_station].fillna(data_norm_df_final.loc[datetimes_str[y_times_idx]]['MEAN'])
+
+    # X = data_norm_df_final.loc[datetimes_str[accepted_times_idx]].values
+    # X_df = X_df.drop(columns=['MEAN'])
+    X_df = X_df.drop(columns=stations_columns)
+    X = X_df.values
+    # Y = data_norm_df_final.loc[datetimes_str[y_times_idx]][stations_columns].values
+    Y = Y_df.values
+
+    config[ModelParams.INPUT_SIZE] = len(X_df.columns)
     print(F'X shape: {X.shape} Y shape: {Y.shape}')
 
     # *********** Chooses the proper model ***********
@@ -89,28 +111,32 @@ def main():
 
     # ************ Saves raw results ********
     number_of_examples = 10
-    img_viz = EOAImageVisualizer(output_folder=output_imgs_folder, disp_images=False)
-    for c_example in range(number_of_examples):
-        hours_to_plot = 24*3 # How many points to plot
-        start_idx = np.random.randint(0, X.shape[0] - hours_to_plot - forecasted_hours)
-        end_idx = start_idx + hours_to_plot
-        create_folder(output_folder)
-        create_folder(output_imgs_folder)
-        for idx_station, cur_station in enumerate(stations_columns):
-            img_viz.plot_1d_data_np(datetimes_str[y_times_idx][start_idx:end_idx],
-                                    [Y[start_idx:end_idx][cur_station].values,
-                                     output_nn_all[start_idx:end_idx, idx_station]],
-                                   title=F'{cur_station}', labels=['GT', 'NN'], file_name_prefix=F'{cur_station}_{c_example}')
+    if generate_images:
+        img_viz = EOAImageVisualizer(output_folder=output_imgs_folder, disp_images=disp_images)
+
+        Y[Y == -1] = np.nan # So that we do not show the -1
+        for c_example in range(number_of_examples):
+            hours_to_plot = 24*3 # How many points to plot
+            start_idx = np.random.randint(0, X.shape[0] - hours_to_plot - forecasted_hours)
+            end_idx = start_idx + hours_to_plot
+            create_folder(output_folder)
+            create_folder(output_imgs_folder)
+            for idx_station, cur_station in enumerate(filter_stations):
+                img_viz.plot_1d_data_np(datetimes_str[y_times_idx][start_idx:end_idx],
+                                        [Y[start_idx:end_idx,idx_station],
+                                         output_nn_all[start_idx:end_idx, idx_station]],
+                                       title=F'{cur_station}', labels=['GT', 'NN'], file_name_prefix=F'{cur_station}_{c_example}')
 
     # ************ Recovering original units********
     print('Recovering original units....')
-    nn_df = pd.DataFrame(output_nn_all, columns=stations_columns, index=data.index[y_times_idx])
+    nn_df = pd.DataFrame(output_nn_all, columns=stations_columns, index=filtered_data.index[y_times_idx])
     nn_original_units = deNormalize(nn_df)
-    Y_original = deNormalize(Y)
+    Y_original = deNormalize(Y_df)
 
     # ************ Computing metrics********
-    print('Computing metrics....')
+    print('Computing metrics and saving predictions....')
     compute_metrics(Y_original, nn_original_units, metrics_user, split_info, output_file_name, stations_columns)
+
 
 if __name__ == '__main__':
     main()
