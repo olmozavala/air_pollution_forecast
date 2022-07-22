@@ -29,12 +29,13 @@ merged_specific_folder = 'Current'
 filter_training_hours = False
 start_year = 2010
 end_year = 2019
-_test_year = end_year
+_test_year = 2015
 _debug = False
 
 # =================================== TRAINING ===================================
 # ----------------------------- UM -----------------------------------
 _run_name = F'Filter_Hours_{filter_training_hours}_{start_year}_{end_year}_Bootstrap_Only_Mean_Input_300x2_200_100x6_TimeHV'  # Name of the model, for training and classification
+# _run_name = F'Filter_Hours_{filter_training_hours}_{start_year}_{end_year}_Bootstrap_Only_Mean_Input_300x3_TimeHV'  # Name of the model, for training and classification
 
 def append_model_params(cur_config):
     model_config = {
@@ -130,6 +131,7 @@ def get_makeprediction_config():
                                        # 'r': np.corrcoef,
                                        'ex_var': explained_variance_score},
         TrainingParams.config_name: _run_name,
+        LocalTrainingParams.filter_dates: filter_training_hours
     }
     return append_model_params(cur_config)
 

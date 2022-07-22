@@ -91,6 +91,7 @@ def change_day(prev_day, next_day, cur_date):
      Output('V-plot', 'figure'),
      Output('RAINC-plot', 'figure'),
      Output('T2-plot', 'figure'),
+     Output('max-daily-plot', 'figure'),
      ],
     [Input('id-map', 'clickData'),
      Input('calendar', 'date'),
@@ -128,6 +129,8 @@ def display_figure(hoverData, cur_date, selectedData):
     date_display = "%A, %B %d, %Y"
     figure_metrics = get_default_figure(getMetrics(data_metrics),
                                         title=F'{pollutant} around {cur_date.strftime(date_display)}')
+    figure_max_daily = get_default_figure(getDataMaxDaily(gt_data[stations], nn_data[stations]),
+                                        title=F'Max {pollutant} for ALL stations ')
     figure_merged =get_default_figure(getDataMerged(data_gt, data_nn),
                                       title=F'{pollutant} around {cur_date.strftime(date_display)}',
                                       range=[0,150])
@@ -144,7 +147,7 @@ def display_figure(hoverData, cur_date, selectedData):
     figure_RAINC = get_default_figure(getMeteoData(gt_data[start_date:end_date], 'RAINC'), title='RAINC')
     figure_Temp = get_default_figure(getMeteoData(gt_data[start_date:end_date], 'T2'), title='Temperature')
 
-    return figure_metrics, figure_merged, figure_nn, figure_gt, figure_U, figure_V, figure_RAINC, figure_Temp,
+    return figure_metrics, figure_merged, figure_nn, figure_gt, figure_U, figure_V, figure_RAINC, figure_Temp, figure_max_daily
 
 
 def getMetrics(data):
@@ -203,6 +206,31 @@ def getDataSingle(data, append_txt=''):
             'line_shape': 'spline',
             'mode': 'lines+markers'
         })
+
+    return output_data
+
+def getDataMaxDaily(data_gt, data_nn, append_txt=''):
+    output_data = []
+    temp_gt_group = data_gt.groupby(by=[data_gt.index.dayofyear])
+    temp_nn_group = data_nn.groupby(by=[data_nn.index.dayofyear])
+    mean_gt = temp_gt_group.max()
+    mean_nn = temp_nn_group.max()
+    output_data.append({
+        'x': np.unique(data_gt.index.dayofyear),
+        'y': mean_gt.max(axis=1),
+        'name': F'GT {append_txt}',
+        'type': 'line',
+        'line_shape': 'spline',
+        'mode': 'lines+markers'
+    })
+    output_data.append({
+        'x': np.unique(data_gt.index.dayofyear),
+        'y': mean_nn.max(axis=1),
+        'name': F'NN {append_txt}',
+        'type': 'line',
+        'line_shape': 'spline',
+        'mode': 'lines+markers'
+    })
 
     return output_data
 
@@ -272,4 +300,5 @@ def getEmptyFigure(name):
 
 
 if __name__ == '__main__':
-    app.run_server(debug=True, port=8051)
+    # app.run_server(debug=True, port=8051)
+    app.run_server(debug=False, port=8053, host='146.201.212.214')

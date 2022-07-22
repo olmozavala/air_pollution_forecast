@@ -4,7 +4,7 @@ import dash_html_components as html
 import dash_bootstrap_components as dbc
 from viz.figure_generator import get_default_figure, get_error_by_date, get_error_by_date_by_station
 
-def get_cols(gt_data, nn_data, plot_type, metric, by_station=True):
+def get_html_cols_for_error_metric(gt_data, nn_data, plot_type, metric, by_station=True):
     cols = []
     for id, name in plot_type.items():
         if by_station:
@@ -12,7 +12,8 @@ def get_cols(gt_data, nn_data, plot_type, metric, by_station=True):
                 dbc.Col([
                     dcc.Graph(
                         id=F'plot_error_by_{by_station}_{name}_{metric}',
-                        figure=get_default_figure(get_error_by_date_by_station(gt_data, nn_data, type=id), title=F'MSE by {name}')),
+                        figure=get_default_figure(get_error_by_date_by_station(gt_data, nn_data, type=id),
+                                                  title=F'{metric} by {name}')),
                 ], width=3)
             )
         else:
@@ -20,7 +21,8 @@ def get_cols(gt_data, nn_data, plot_type, metric, by_station=True):
                 dbc.Col([
                     dcc.Graph(
                         id=F'plot_error_by_{by_station}_{name}_{metric}',
-                        figure=get_default_figure(get_error_by_date(gt_data, nn_data, type=id, metric=metric), title=F'{metric} by {name}')),
+                        figure=get_default_figure(get_error_by_date(gt_data, nn_data, type=id, metric=metric),
+                                                  title=F'{metric} by {name}')),
                 ], width=3)
             )
     return cols
@@ -48,10 +50,10 @@ def get_layout(default_date, stations_geodf, gt_data, nn_data, title):
 
 
     plot_type = {'M':'month', 'W':'week', 'WD':'week day', 'H':'hour'}
-    mse_plots_by_station = get_cols(gt_data, nn_data, plot_type, metric='RMSE', by_station=True)
-    mse_plots = get_cols(gt_data, nn_data, plot_type, metric='RMSE', by_station=False)
-    err_plots = get_cols(gt_data, nn_data, plot_type, metric='ERR', by_station=False)
-    mae_plots = get_cols(gt_data, nn_data, plot_type, metric='MAE', by_station=False)
+    mse_plots_by_station = get_html_cols_for_error_metric(gt_data, nn_data, plot_type, metric='RMSE', by_station=True)
+    mse_plots = get_html_cols_for_error_metric(gt_data, nn_data, plot_type, metric='RMSE', by_station=False)
+    err_plots = get_html_cols_for_error_metric(gt_data, nn_data, plot_type, metric='ERR', by_station=False)
+    mae_plots = get_html_cols_for_error_metric(gt_data, nn_data, plot_type, metric='MAE', by_station=False)
 
     body = dbc.Container([
         # Global information
@@ -60,32 +62,6 @@ def get_layout(default_date, stations_geodf, gt_data, nn_data, title):
         dbc.Row(mse_plots),
         dbc.Row(err_plots),
         dbc.Row(mae_plots),
-        dbc.Row([
-            dbc.Col([
-                dcc.Graph(
-                    id='plot_error_by_month_by_est',
-                    figure=get_default_figure(get_error_by_date_by_station(gt_data, nn_data, type="M"),
-                                              title='RMSE by month by est')),
-            ], width=3),
-            dbc.Col([
-                dcc.Graph(
-                    id='plot_error_by_week_by_est',
-                    figure=get_default_figure(get_error_by_date_by_station(gt_data, nn_data, type="W"),
-                                              title='RMSE by week by est')),
-            ], width=3),
-            dbc.Col([
-                dcc.Graph(
-                    id='plot_error_by_week_day_by_est',
-                    figure=get_default_figure(get_error_by_date_by_station(gt_data, nn_data, type="WD"),
-                                              title='RMSE by week day by est')),
-            ], width=3),
-            dbc.Col([
-                dcc.Graph(
-                    id='plot_error_by_hour_by_est',
-                    figure=get_default_figure(get_error_by_date_by_station(gt_data, nn_data, type="H"),
-                                              title='RMSE by hour by est')),
-            ], width=3),
-        ]),
         dbc.Row([
             dbc.Col([
                 dcc.DatePickerSingle(
@@ -106,7 +82,12 @@ def get_layout(default_date, stations_geodf, gt_data, nn_data, title):
                 dcc.Graph(
                     id='metrics-plot',
                     figure={}),
-            ], width=12),
+            ], width=6),
+            dbc.Col([
+                dcc.Graph(
+                    id='max-daily-plot',
+                    figure={}),
+            ], width=6),
         ]),
         dbc.Row([
             dbc.Col([

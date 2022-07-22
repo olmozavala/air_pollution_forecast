@@ -1,6 +1,10 @@
+import sys
+sys.path.append("ai_common/")
+sys.path.append("eoas_pyutils/")
+
 from datetime import datetime, timedelta
 
-from img_viz.eoa_viz import EOAImageVisualizer
+from viz_utils.eoa_viz import EOAImageVisualizer
 from conf.localConstants import constants
 import numpy as np
 from os.path import join, dirname
@@ -9,7 +13,7 @@ from constants.AI_params import ModelParams, ClassificationParams, TrainingParam
 from conf.params import LocalTrainingParams
 
 from conf.TrainingUserConfiguration import get_makeprediction_config
-from inout.io_common import  create_folder
+from io_utils.io_common import create_folder
 from data_generation.utilsDataFormat import *
 from models.modelSelector import select_1d_model
 from proj_preproc.preproc import normalizeAndFilterData, deNormalize, generate_date_hot_vector
@@ -32,6 +36,7 @@ def main():
     generate_images = config[ClassificationParams.generate_images]
     metrics_user = config[ClassificationParams.metrics]
     filter_stations = config[LocalTrainingParams.stations]
+    filter_by_dates = config[LocalTrainingParams.filter_dates]
 
     # Iterate over the stations
     # Selects the proper model file for the current station
@@ -53,11 +58,14 @@ def main():
     data = pd.concat([data[desired_columns], date_hv], axis=1)
     print("Done!")
 
-    # print("Filtering data to hours 9 to 20...")
-    filtered_data =data.between_time("9:00", "20:00")
-    # filtered_data = data
+    if filter_by_dates:
+        print("Filtering data to hours 9 to 20...")
+        filtered_data =data.between_time("9:00", "20:00")
+        # print("Done!")
+    else:
+        filtered_data = data
+
     datetimes_str = filtered_data.index.values
-    # print("Done!")
 
     print(F'Normalizing and filtering data....')
     parameters_folder = join(dirname(output_folder), 'Training','Parameters')
