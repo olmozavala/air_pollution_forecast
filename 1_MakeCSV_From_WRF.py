@@ -11,7 +11,6 @@ from multiprocessing import Pool
 
 from io_netcdf.inout import read_wrf_files_names, read_wrf_old_files_names, saveFlattenedVariables
 
-
 def process_files(user_config, all_path_names, all_file_names, all_dates, all_files_coords_old=[], mode=wrfFileType.new):
     variable_names = user_config[PreprocParams.variables]
     output_folder = user_config[PreprocParams.output_folder]
@@ -120,21 +119,19 @@ def main():
     start_date_old = user_config[PreprocParams.start_date_oldmodel]
     end_date_old = user_config[PreprocParams.end_date_oldmodel]
 
-    # print("Working with old model files...")
-    # all_dates_old, all_file_names_old, all_files_coords_old, all_path_names_old = read_wrf_old_files_names(input_folder_old, start_date_old, end_date_old)
-    # process_files(user_config, all_path_names_old, all_file_names_old, all_dates_old, all_files_coords_old, mode=wrfFileType.old)
-    # print("Done!")
-    # print("Working with new model files...")
-    # all_dates, all_file_names, all_path_names = read_wrf_files_names(input_folder, start_date, end_date)
-    # process_files(user_config, all_path_names, all_file_names, all_dates, [], mode=wrfFileType.new)
-    # print("Done!")
+    print("Working with old model files...")
+    all_dates_old, all_file_names_old, all_files_coords_old, all_path_names_old = read_wrf_old_files_names(input_folder_old, start_date_old, end_date_old)
+    process_files(user_config, all_path_names_old, all_file_names_old, all_dates_old, all_files_coords_old, mode=wrfFileType.old)
+    print("Done!")
+    print("Working with new model files...")
+    all_dates, all_file_names, all_path_names = read_wrf_files_names(input_folder, start_date, end_date)
+    process_files(user_config, all_path_names, all_file_names, all_dates, [], mode=wrfFileType.new)
+    print("Done!")
 
     # Patch to make it parallel for 'old model'
     NUMBER_PROC = 10
     p = Pool(NUMBER_PROC)
     p.map(runParallel, range(1980,2018))
-
-
 
 if __name__== '__main__':
     main()

@@ -4,6 +4,7 @@ import netrc
 
 def getPostgresConn():
     """ Makes the connection with the DB"""
+    print("Connecting to database....")
     secrets = netrc.netrc()
     login, account, passw = secrets.hosts['OWGIS']
 

@@ -1,0 +1,33 @@
+name: aieaosweb
+channels:
+    - nodefaults
+    - anaconda
+    - conda-forge
+    - intel
+    - pyviz
+dependencies:
+    - tensorflow-gpu=*.*
+    - tensorboard=*.*
+    - pandas=*.*
+    - scipy=*.*
+    - scikit-image=*.*
+    - scikit-learn=*.*
+    - matplotlib=*.*
+    - cartopy=*.*
+    - geojson=*.*
+    - datashader=*.*
+    - cmocean=*.*
+    - colorcet=*.*
+    - pydot=*.*
+    # For xarray
+    - xarray=*.*
+    - dask=*.*
+    - netCDF4=*.*
+    - pytest=*.*
+    - pydot=*.*
+    - jupyterlab=*.*
+    - ipykernel=*.*
+    - psycopg2=*.*
+    - geopandas=*.*
+    - dash=*.*
+    - dash-bootstrap-components=*.*
