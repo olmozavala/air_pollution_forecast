@@ -32,8 +32,9 @@ def getPreprocWRFParams():
         # is included, last day is < than.
         # These next 4 all for ALL the years
         PreprocParams.start_date_newmodel: '2017-01-01',
-        PreprocParams.end_date_newmodel: '2019-12-31',
-        PreprocParams.start_date_oldmodel: '1980-01-01',
+        PreprocParams.end_date_newmodel: '2022-12-31',
+        # PreprocParams.start_date_oldmodel: '1980-01-01',
+        PreprocParams.start_date_oldmodel: '2010-01-01',
         PreprocParams.end_date_oldmodel: '2017-01-01',
         # PreprocParams.start_date_newmodel: '2019-01-01',
         # PreprocParams.end_date_newmodel: '2019-01-02',
@@ -70,7 +71,7 @@ def getPreprocDBParams():
         # Start and end date to generate the CSVs. The dates are in python 'range' style. Start day
         # is included, last day is < than.
         DBToCSVParams.start_date: '1980-01-01',
-        DBToCSVParams.end_date: '2019-12-31',
+        DBToCSVParams.end_date: '2022-12-31',
     }
 
     return make_csv_config

@@ -22,10 +22,9 @@ stations_2020 = ["CUA" ,"SFE" ,"SAG" ,"CUT" ,"PED" ,"TAH" ,"GAM" ,"IZT" ,"CCA" ,
                  "MGH" ,"CAM" ,"FAC" ,"TLA" ,"MER" ,"XAL" ,"LLA" ,"TLI" ,"UAX" ,"BJU" ,"MPA" ,"AJU" ,"UIZ"
                  ,"MON" ,"NEZ" ,"INN" ,"AJM" ,"VIF"]
 
-output_folder = '/data/UNAM/Air_Pollution_Forecast/Data'
-training_output_folder = '/data/UNAM/Air_Pollution_Forecast/Data/Training/'
+output_folder = '/ZION/AirPollutionData/Data/'
+training_output_folder = '/ZION/AirPollutionData/'
 merged_specific_folder = 'Current'
-# output_folder = '/home/olmozavala/REMOTE_PROJECTS/OUTPUT'
 filter_training_hours = False
 start_year = 2010
 end_year = 2019
