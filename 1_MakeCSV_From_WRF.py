@@ -5,6 +5,7 @@ from proj_preproc.utils import getStringDates
 from conf.localConstants import constants
 from conf.localConstants import wrfFileType
 import os
+from os.path import join
 import xarray as xr
 # from img_viz.eoa_viz import EOAImageVisualizer
 from multiprocessing import Pool
@@ -78,7 +79,7 @@ def process_files(user_config, all_path_names, all_file_names, all_dates, all_fi
             # viz_obj.plot_3d_data_xarray_map(subsampled_xr_ds, var_names=variable_names, timesteps=[0,1], title='Subsampled Data',
             #                                 file_name_prefix=F"Subsampled_{file_text}", timevar_name='newtime')
 
-            print("\tFlattening variables and saving as csv")
+            print(f"\tFlattening variables and saving as csv {join(output_folder_final, all_dates[file_idx].strftime(constants.date_format.value))}")
             # Obtain time strings for current file
             # Save variables as a single CSV file
 
@@ -88,7 +89,7 @@ def process_files(user_config, all_path_names, all_file_names, all_dates, all_fi
                                        index_names=getStringDates(all_dates[file_idx], times),
                                        index_label=constants.index_label.value)
             except Exception as e:
-                print(F"ERROR!!!!! Failed to save file {all_path_names[file_idx]}: {e}")
+                print(F"ERROR!!!!! Failed with file {all_path_names[file_idx]}: {e}")
             continue
 
 def runParallel(year):
@@ -97,14 +98,18 @@ def runParallel(year):
     input_folder = user_config[PreprocParams.input_folder_new]
     input_folder_old = user_config[PreprocParams.input_folder_old]
 
-    start_date_old = F'{year}-01-01'
-    end_date_old = F'{year + 1}-01-01'
+    start_date = F'{year}-01-01'
+    end_date = F'{year + 1}-01-01'
 
-    print("Working with old model files...")
-    all_dates_old, all_file_names_old, all_files_coords_old, all_path_names_old = read_wrf_old_files_names(
-                    input_folder_old, start_date_old, end_date_old)
-    process_files(user_config, all_path_names_old, all_file_names_old, all_dates_old, all_files_coords_old,
-                  mode=wrfFileType.old)
+    if year < 2018: # We use the 'old' model
+        print(f"Working with old model files years {start_date}-{end_date}")
+        all_dates_old, all_file_names_old, all_files_coords_old, all_path_names_old = read_wrf_old_files_names(
+                        input_folder_old, start_date, end_date)
+        process_files(user_config, all_path_names_old, all_file_names_old, all_dates_old, all_files_coords_old, mode=wrfFileType.old)
+    else:
+        print(f"Working with new model files years {start_date}-{end_date}")
+        all_dates, all_file_names, all_path_names = read_wrf_files_names(input_folder, start_date, end_date)
+        process_files(user_config, all_path_names, all_file_names, all_dates, [], mode=wrfFileType.new)
     print("Done!")
 
 def main():
@@ -114,27 +119,14 @@ def main():
     input_folder = user_config[PreprocParams.input_folder_new]
     input_folder_old = user_config[PreprocParams.input_folder_old]
 
-    start_date = user_config[PreprocParams.start_date_newmodel]
-    end_date = user_config[PreprocParams.end_date_newmodel]
-    start_date_old = user_config[PreprocParams.start_date_oldmodel]
-    end_date_old = user_config[PreprocParams.end_date_oldmodel]
+    # The max range is from 1980 to present
+    start_year = 1980
+    end_year = 2023
 
-    print("Working with old model files...")
-    all_dates_old, all_file_names_old, all_files_coords_old, all_path_names_old = read_wrf_old_files_names(input_folder_old, start_date_old, end_date_old)
-    process_files(user_config, all_path_names_old, all_file_names_old, all_dates_old, all_files_coords_old, mode=wrfFileType.old)
-    print("Done!")
-    print("Working with new model files...")
-    all_dates, all_file_names, all_path_names = read_wrf_files_names(input_folder, start_date, end_date)
-    process_files(user_config, all_path_names, all_file_names, all_dates, [], mode=wrfFileType.new)
-    print("Done!")
-
-    # Patch to make it parallel for 'old model'
-    NUMBER_PROC = 10
+    # Run this process in parallel splitting separating by years
+    NUMBER_PROC = 20
     p = Pool(NUMBER_PROC)
-    p.map(runParallel, range(1980,2018))
+    p.map(runParallel, range(start_year, end_year))
 
 if __name__== '__main__':
     main()
-
-##
-

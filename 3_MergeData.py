@@ -4,7 +4,7 @@ from conf.TrainingUserConfiguration import getMergeParams
 from conf.params import LocalTrainingParams, MergeFilesParams
 from constants.AI_params import TrainingParams
 from AI.utils import getQuadrantsAsString
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from os.path import join
 import os
 import numpy as np
@@ -23,7 +23,7 @@ def filterDatesWithMeteorologicalData(datetimes, forecasted_hours, num_hours_in_
     :param WRF_data_folder_name:
     :return:
     """
-    print(F"\tFiltering dates...")
+    print("Filtering dates with available meteorological dates....")
     not_meteo_idxs = []
     dates = [cur_datetime.date() for cur_datetime in datetimes]
     required_days = int(np.ceil( (forecasted_hours+1)/num_hours_in_netcdf)) # Number of days required for each date
@@ -34,6 +34,7 @@ def filterDatesWithMeteorologicalData(datetimes, forecasted_hours, num_hours_in_
             required_netCDF_file_name = join(WRF_data_folder_name, F"{cur_date_str}.csv")
             # Verify the desired file exist (if not it means we don't have meteo data for that pollution variable)
             if not (os.path.exists(required_netCDF_file_name)):
+                # print(f"Warning! Meteorological file not found: {required_netCDF_file_name}") # For debugging  purposes
                 # Reads the proper netcdf file
                 not_meteo_idxs.append(date_idx)
 
@@ -61,9 +62,8 @@ def readMeteorologicalData(datetimes, forecasted_hours, num_hours_in_netcdf, WRF
     :return:
     """
     # To make it more efficient we verify which netcdf data was loaded previously
-    print(F"\tAppending meteorological data...")
     file_name = join(WRF_data_folder_name, F"{date.strftime(datetimes[0], constants.date_format.value)}.csv")
-    meteo_columns, all_meteo_columns = getMeteoColumns(file_name, forecasted_hours)
+    meteo_columns, all_meteo_columns = getMeteoColumns(file_name, forecasted_hours) # Creates the meteo columns in the dataframe
     tot_meteo_columns = len(meteo_columns)
     x_data_meteo = np.zeros((tot_examples, tot_meteo_columns * forecasted_hours))
     rainc_cols = [x for x in meteo_columns if x.find('RAINC') != -1]
@@ -80,7 +80,7 @@ def readMeteorologicalData(datetimes, forecasted_hours, num_hours_in_netcdf, WRF
         required_files = []
         files_available = True
         for day_idx in range(required_days_to_read):
-            cur_date_str = date.strftime(datetimes[date_idx] + np.timedelta64(day_idx, 'D'), constants.date_format.value)
+            cur_date_str = date.strftime(datetimes[date_idx] + timedelta(days=day_idx), constants.date_format.value)
             netcdf_file = join(WRF_data_folder_name, F"{cur_date_str}.csv")
             if not(os.path.exists(netcdf_file)):
                 files_available = False
@@ -101,12 +101,12 @@ def readMeteorologicalData(datetimes, forecasted_hours, num_hours_in_netcdf, WRF
                     netcdf_data = pd.read_csv(cur_file, index_col=0)
                 else:
                     # Remove all dates
-                    netcdf_data = netcdf_data.append(pd.read_csv(cur_file, index_col=0))
+                    netcdf_data = pd.concat([netcdf_data,pd.read_csv(cur_file, index_col=0)])
                 loaded_files.append(cur_file)
 
             # --------------------- Preprocess RAINC and RAINNC--------------------
-            netcdf_data.loc[:-1, rainc_cols] = netcdf_data[1:][rainc_cols].values - netcdf_data[:-1][rainc_cols].values
-            netcdf_data.loc[:-1, rainnc_cols] = netcdf_data[1:][rainnc_cols].values - netcdf_data[:-1][rainnc_cols].values
+            netcdf_data.iloc[:-1, [netcdf_data.columns.get_loc(x) for x in rainc_cols]] = netcdf_data.iloc[1:][rainc_cols].values - netcdf_data.iloc[:-1][rainc_cols].values
+            netcdf_data.iloc[:-1, [netcdf_data.columns.get_loc(x) for x in rainnc_cols]] = netcdf_data.iloc[1:][rainnc_cols].values - netcdf_data.iloc[:-1][rainnc_cols].values
             # The last day between the years gets messed up, fix it by setting rain to 0
             netcdf_data[rainc_cols].where(netcdf_data[rainc_cols] <= 0, 0)
             netcdf_data[rainnc_cols].where(netcdf_data[rainnc_cols] <= 0, 0)
@@ -171,7 +171,7 @@ def merge_by_year(config):
         for current_year in years:
             print(F"\tDone!  Not found: {notfound}")
 
-            print(F"Filtering dates for the year {current_year}")
+            print(F"\t\tFiltering dates for the year {current_year}")
             start_date = F'{current_year}-01-01'
             # end_date = F'{current_year}-01-05'
             end_date = F'{current_year+1}-01-01'
@@ -235,11 +235,9 @@ def merge_by_station(config):
         # Iterate over all stations
         for cur_station in stations:
             try:
-                print(F"============  {cur_pollutant} -- {cur_station} ==========================")
+                print(F"============ Pollutant: {cur_pollutant} -- Station:  {cur_station} ==========================")
 
-                print(F"\tReading data...")
-                append_meteo_colums = True  # It is used to append the meteo variable columns into the database
-
+                print(F"\tReading pollutant data: {cur_pollutant}_{cur_station}.csv ...")
                 db_file_name = join(input_folder, constants.db_output_folder.value, F"{cur_pollutant}_{cur_station}.csv")
                 data_cur_station = pd.read_csv(db_file_name, index_col=0)
                 print("\tDone!")
@@ -247,20 +245,17 @@ def merge_by_station(config):
                 # Build the X and Y values for the training
                 datetimes_str = data_cur_station.index.values
                 datetimes = [datetime.strptime(x, constants.datetime_format.value) for x in datetimes_str]
-
-                # Quick filter on which hours are really possible to use
+                tot_examples = len(datetimes_str)
 
                 # Refresh valid dates
-                datetimes_str = data_cur_station.index.values
-                tot_examples = len(datetimes_str)
-                print(F"\tOriginal examples: {len(datetimes)} new examples: {tot_examples}")
-                datetimes = [datetime.strptime(x, constants.datetime_format.value) for x in data_cur_station.index.values]
-
+                print(F"\tTotal examples: {tot_examples}. Dates from {datetimes_str[0]} to {datetimes_str[-1]}")
                 not_meteo_idxs = filterDatesWithMeteorologicalData(datetimes, forecasted_hours, num_hours_in_netcdf, WRF_data_folder_name)
+                print(f"\t Times with no meteorological data: {[datetimes_str[x] for x in not_meteo_idxs]}")
 
                 # Remove pollutant data where we don't have meteorolical data (removed from training examples)
                 data_cur_station = data_cur_station.drop([datetimes_str[x] for x in not_meteo_idxs])
 
+                print(F"\tReading meteorological data: {WRF_data_folder_name} ...")
                 x_data_meteo, all_meteo_columns = readMeteorologicalData(datetimes, forecasted_hours, num_hours_in_netcdf,
                                                                          WRF_data_folder_name, tot_examples)
 
@@ -277,11 +272,7 @@ def merge_by_station(config):
 
 
 if __name__ == '__main__':
-
     config = getMergeParams()
-    # merge_by_station(config)
+    merge_by_station(config)
     merge_by_year(config)
-
-
-##
 

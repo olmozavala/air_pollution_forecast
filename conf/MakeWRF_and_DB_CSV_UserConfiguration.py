@@ -13,10 +13,10 @@ def getPreprocWRFParams():
         PreprocParams.variables: ['U10', 'V10', 'RAINC', 'T2', 'RAINNC', 'SWDOWN', 'GLW'],
         # Donde se guardan los csv
         # PreprocParams.input_folder_new: '/data/UNAM/Air_Pollution_Forecast/Data/WRF_Kraken/new_model',
-        PreprocParams.input_folder_new: '/ServerData/WRF_Kraken',  # Paths at ZION
         # PreprocParams.input_folder_old: '/data/UNAM/Air_Pollution_Forecast/Data/WRF_Kraken/old_model_v4',
+        PreprocParams.input_folder_new: '/ServerData/WRF_Kraken',  # Paths at ZION
         PreprocParams.input_folder_old: '/ServerData/CHACMOOL/Reanalisis/RESPALDO_V4/',  # Paths at ZION
-        PreprocParams.output_folder: join(output_folder, constants.wrf_output_folder.value),
+        PreprocParams.output_folder: join(output_folder, constants.wrf_output_folder.value, constants.wrf_each_quadrant_name.value),
         PreprocParams.output_imgs_folder: join(output_folder, 'imgs'), # Path to save temporal images (netcdfs preprocessing)
         PreprocParams.display_imgs: True,  # Boolean that indicates if we want to save the images
         # How to subsample the data
@@ -28,18 +28,6 @@ def getPreprocWRFParams():
         # How to crop the data [minlat, maxlat, minlon, maxlon]
         PreprocParams.bbox: [19.05,20,-99.46, -98.7],
         PreprocParams.times: range(72),  # What is this?
-        # Start and end date to generate the CSVs. The dates are in python 'range' style. Start day
-        # is included, last day is < than.
-        # These next 4 all for ALL the years
-        PreprocParams.start_date_newmodel: '2017-01-01',
-        PreprocParams.end_date_newmodel: '2022-12-31',
-        # PreprocParams.start_date_oldmodel: '1980-01-01',
-        PreprocParams.start_date_oldmodel: '2010-01-01',
-        PreprocParams.end_date_oldmodel: '2017-01-01',
-        # PreprocParams.start_date_newmodel: '2019-01-01',
-        # PreprocParams.end_date_newmodel: '2019-01-02',
-        # PreprocParams.start_date_oldmodel: '1980-01-02',
-        # PreprocParams.end_date_oldmodel: '1980-01-03',
         }
 
     return make_csv_config

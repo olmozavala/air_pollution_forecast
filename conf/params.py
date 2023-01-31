@@ -10,11 +10,6 @@ class PreprocParams(Enum):
     resampled_output_sizes = 6  # Array with the subsampled size to be tenerated
     bbox = 8  # Boundary box to be used for cropping the data (minlat, maxlat, minlon, maxlon)
     times = 9  # Array of times indexes to be used
-    start_date_oldmodel = 12  # Start date that is used fo filter the files being used
-    end_date_oldmodel = 13  # Start date that is used fo filter the files being used
-    start_date_newmodel = 14  # Start date that is used fo filter the files being used
-    end_date_newmodel = 15  # Start date that is used fo filter the files being used
-
 
 class DBToCSVParams(Enum):
     tables = 1  # A list of str with the names of the contaminants to process
