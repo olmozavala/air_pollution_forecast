@@ -1,5 +1,5 @@
 import json
-from constants.AI_params import VisualizationResultsParams, TrainingParams
+from ai_common.constants.AI_params import VisualizationResultsParams, TrainingParams
 from conf.TrainingUserConfiguration import get_visualization_config
 import dash_bootstrap_components as dbc
 from textwrap import dedent as d
