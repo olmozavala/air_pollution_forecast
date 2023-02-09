@@ -273,6 +273,6 @@ def merge_by_station(config):
 
 if __name__ == '__main__':
     config = getMergeParams()
-    merge_by_station(config)
+    # merge_by_station(config)
     merge_by_year(config)
 

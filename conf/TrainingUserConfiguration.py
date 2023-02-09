@@ -60,7 +60,7 @@ def getMergeParams():
         LocalTrainingParams.tot_num_quadrants: 64,
         LocalTrainingParams.num_hours_in_netcdf: 24, # 72 (forecast)
         MergeFilesParams.output_folder: join(output_folder, constants.merge_output_folder.value),
-        MergeFilesParams.years: range(2019,2020)
+        MergeFilesParams.years: range(2010,2023)
     }
 
     return cur_config
