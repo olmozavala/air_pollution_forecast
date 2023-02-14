@@ -3,6 +3,7 @@ import glob
 from conf.localConstants import constants
 from tensorflow.keras.optimizers import *
 import tensorflow.keras.metrics as metrics
+import tensorflow.keras.activations as activations
 import tensorflow.keras.losses as losses
 from os.path import join
 import os
@@ -10,7 +11,7 @@ from sklearn.metrics import *
 from proj_prediction.metrics import restricted_mse
 import numpy as np
 
-from constants.AI_params import ModelParams, AiModels, TrainingParams, ClassificationParams, VisualizationResultsParams
+from ai_common.constants.AI_params import ModelParams, AiModels, TrainingParams, ClassificationParams, VisualizationResultsParams
 
 all_stations = ["ACO", "AJM", "AJU", "ARA", "ATI", "AZC", "BJU", "CAM", "CCA", "CES", "CFE", "CHO", "COR", "COY", "CUA"
           ,"CUI", "CUT", "DIC", "EAJ", "EDL", "FAC", "FAN", "GAM", "HAN", "HGM", "IBM", "IMP", "INN", "IZT", "LAA", "LAG", "LLA"
@@ -18,13 +19,13 @@ all_stations = ["ACO", "AJM", "AJU", "ARA", "ATI", "AZC", "BJU", "CAM", "CCA", "
           ,"SHA", "SJA", "SNT", "SUR", "TAC", "TAH", "TAX", "TEC", "TLA", "TLI", "TPN", "UAX", "UIZ", "UNM", "VAL", "VIF", "XAL"
           , "XCH"]
 
-stations_2020 = ["CUA" ,"SFE" ,"SAG" ,"CUT" ,"PED" ,"TAH" ,"GAM" ,"IZT" ,"CCA" ,"ATI" ,"HGM" ,"LPR" ,
-                 "MGH" ,"CAM" ,"FAC" ,"TLA" ,"MER" ,"XAL" ,"LLA" ,"TLI" ,"UAX" ,"BJU" ,"MPA" ,"AJU" ,"UIZ"
-                 ,"MON" ,"NEZ" ,"INN" ,"AJM" ,"VIF"]
+stations_2020 = ["AJU" ,"ATI" ,"CUA" ,"SFE" ,"SAG" ,"CUT" ,"PED" ,"TAH" ,"GAM" ,"IZT" ,"CCA" ,"HGM" ,"LPR" ,
+                 "MGH" ,"CAM" ,"FAC" ,"TLA" ,"MER" ,"XAL" ,"LLA" ,"TLI" ,"UAX" ,"BJU" ,"MPA" ,"UIZ",
+                 "MON" ,"NEZ" ,"INN" ,"AJM" ,"VIF"]
 
-output_folder = '/ZION/AirPollutionData/Data/'
-training_output_folder = '/ZION/AirPollutionData/'
-merged_specific_folder = 'Current'
+data_folder = '/ZION/AirPollutionData/Data/'
+training_output_folder = '/ZION/AirPollutionData/Training'
+merged_specific_folder = '8_8' # We may have multiple folders inside merge depending on the cuadrants
 filter_training_hours = False
 start_year = 2010
 end_year = 2019
@@ -43,6 +44,9 @@ def append_model_params(cur_config):
         ModelParams.BATCH_NORMALIZATION: True,
         # ModelParams.CELLS_PER_HIDDEN_LAYER: [300, 300, 300],
         ModelParams.CELLS_PER_HIDDEN_LAYER: [300, 300, 200, 100, 100, 100, 100, 100, 100],
+        ModelParams.NUMBER_OF_OUTPUT_CLASSES: 1,
+        ModelParams.ACTIVATION_HIDDEN_LAYERS: 'relu',
+        ModelParams.ACTIVATION_OUTPUT_LAYERS: None
     }
     model_config[ModelParams.HIDDEN_LAYERS] = len(model_config[ModelParams.CELLS_PER_HIDDEN_LAYER])
     return {**cur_config, **model_config}
@@ -51,15 +55,14 @@ def append_model_params(cur_config):
 def getMergeParams():
     # We are using the same parameter as the
     cur_config = {
-        MergeFilesParams.input_folder: output_folder,
-        MergeFilesParams.output_folder: F"{join(output_folder, constants.merge_output_folder.value)}",
+        MergeFilesParams.input_folder: data_folder,
         # MergeFilesParams.stations: ["ACO", "AJM"],
         MergeFilesParams.stations: stations_2020,
         MergeFilesParams.pollutant_tables: ["cont_otres"],
         MergeFilesParams.forecasted_hours: 24,
         LocalTrainingParams.tot_num_quadrants: 64,
         LocalTrainingParams.num_hours_in_netcdf: 24, # 72 (forecast)
-        MergeFilesParams.output_folder: join(output_folder, constants.merge_output_folder.value),
+        MergeFilesParams.output_folder: join(data_folder, constants.merge_output_folder.value),
         MergeFilesParams.years: range(2010,2023)
     }
 
@@ -68,8 +71,8 @@ def getMergeParams():
 
 def getTrainingParams():
     cur_config = {
-        TrainingParams.input_folder: join(output_folder, constants.merge_output_folder.value, merged_specific_folder),
-        TrainingParams.output_folder: F"{join(output_folder, constants.training_output_folder.value)}",
+        TrainingParams.input_folder: join(data_folder, constants.merge_output_folder.value, merged_specific_folder),
+        TrainingParams.output_folder: F"{join(data_folder, constants.training_output_folder.value)}",
         TrainingParams.validation_percentage: .1,
         TrainingParams.test_percentage: 0, # We will test with a diferent day
         TrainingParams.evaluation_metrics: [restricted_mse, metrics.mean_squared_error],  # Metrics to show in tensor flow in the training
@@ -81,7 +84,7 @@ def getTrainingParams():
         TrainingParams.config_name: _run_name,
         TrainingParams.data_augmentation: False,
         LocalTrainingParams.stations: stations_2020,
-        LocalTrainingParams.pollutant: "cont_otres",
+        LocalTrainingParams.pollutants: ["cont_otres"],
         LocalTrainingParams.forecasted_hours: 24,
         LocalTrainingParams.tot_num_quadrants: 64,  # 8x8
         LocalTrainingParams.num_hours_in_netcdf: 24,
@@ -98,10 +101,10 @@ splits_folder = join(training_output_folder, 'Splits')
 def get_test_file(debug=False):
     year = _test_year
     if debug:
-        test_file = join(output_folder, constants.merge_output_folder.value,
+        test_file = join(data_folder, constants.merge_output_folder.value,
                          merged_specific_folder, F'{year}_cont_otres_AllStationsDebug.csv')
     else:
-        test_file = join(output_folder, constants.merge_output_folder.value,
+        test_file = join(data_folder, constants.merge_output_folder.value,
                          merged_specific_folder, F'{year}_cont_otres_AllStations.csv')
     return test_file
 
@@ -113,12 +116,12 @@ def get_makeprediction_config():
     model_file = files[-1]
     cur_config = {
         ClassificationParams.input_file: get_test_file(debug=_debug),
-        ClassificationParams.output_folder: F"{join(output_folder, results_folder)}",
+        ClassificationParams.output_folder: F"{join(data_folder, results_folder)}",
         ClassificationParams.model_weights_file: join(models_folder, model_file),
         # ClassificationParams.split_file: join(splits_folder, F"{run_name}.csv"),
         ClassificationParams.split_file: '',
         ClassificationParams.output_file_name: join(training_output_folder,results_folder, F'{_run_name}.csv'),
-        ClassificationParams.output_imgs_folder: F"{join(output_folder, results_folder, _run_name)}",
+        ClassificationParams.output_imgs_folder: F"{join(data_folder, results_folder, _run_name)}",
         ClassificationParams.generate_images: False,
         ClassificationParams.show_imgs: False,
         ClassificationParams.save_prediction: True,

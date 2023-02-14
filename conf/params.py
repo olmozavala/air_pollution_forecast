@@ -30,7 +30,7 @@ class MergeFilesParams(Enum):
     years = 9
 
 class LocalTrainingParams(Enum):
-    pollutant = 1
+    pollutants = 1
     stations = 2
     forecasted_hours = 7  # Which hour we want to forecaste
     tot_num_quadrants = 8  # How many quadrants are we using for the weather data

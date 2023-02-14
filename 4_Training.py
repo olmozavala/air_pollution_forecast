@@ -1,41 +1,26 @@
-from constants.AI_params import TrainingParams, ModelParams
+from ai_common.constants.AI_params import NormParams, TrainingParams, ModelParams
+import ai_common.training.trainingutils as utilsNN
+from ai_common.models.modelSelector import select_1d_model
 
-from img_viz.eoa_viz import EOAImageVisualizer
+from viz_utils.eoa_viz import EOAImageVisualizer
+from io_utils.io_common import create_folder
 from conf.localConstants import constants
 from conf.TrainingUserConfiguration import getTrainingParams
-from preproc.constants import NormParams
-from inout.io_common import create_folder
 from conf.params import LocalTrainingParams
-import trainingutils as utilsNN
-from models.modelSelector import select_1d_model
 
 from datetime import date, datetime, timedelta
 import tensorflow as tf
-from tensorflow.keras.utils import plot_model
+# from tensorflow.keras.utils import plot_model
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
 from sklearn import preprocessing
 from os.path import join
+import matplotlib.pyplot as plt
 
 tf.config.experimental.VirtualDeviceConfiguration(memory_limit=12288)
 
-def main():
-    config = getTrainingParams()
-    # =============== Read data and merge meteorological variables===============
-    print("Reading data")
-    station = config[LocalTrainingParams.stations]
-    pollutant = config[LocalTrainingParams.pollutant]
-    # Iterate over all pollutants
-    # for cur_pollutant in pollutants:
-        # Iterate over all stations
-        # for cur_station in stations:
-    try:
-        trainModel(config, pollutant, station)
-    except Exception as e:
-        print(F"ERROR! It has failed for:{pollutant} -- {station}: {e}")
-
-def trainModel(config, cur_pollutant, cur_station):
+def trainModel(config, cur_pollutant, cur_station, year=-1):
     """Trying to separate things so that tf 'cleans' the memory """
 
     input_folder = config[TrainingParams.input_folder]
@@ -63,15 +48,15 @@ def trainModel(config, cur_pollutant, cur_station):
 
     viz_obj = EOAImageVisualizer(output_folder=imgs_folder, disp_images=False)
 
-    print(F"============ Reading data for: {cur_pollutant} -- {cur_station} ==========================")
-    db_file_name = join(input_folder, constants.merge_output_folder.value, F"{cur_pollutant}_{cur_station}.csv")
+    # db_file_name = join(input_folder, F"{cur_pollutant}_{cur_station}.csv")
+    db_file_name = join(input_folder, F"{cur_pollutant}_{cur_station}_red.csv") # Just for testing
+    print(F"============ Reading data for: {cur_pollutant} -- {cur_station}: {db_file_name}")
     data = pd.read_csv(db_file_name, index_col=0)
 
     config[ModelParams.INPUT_SIZE] = len(data.columns)
     print(F'Data shape: {data.shape} Data axes {data.axes}')
     print("Done!")
 
-    # Predicting for the next value after 24hrs (only one)
     print("Normalizing data....")
     datetimes_str = data.index.values
     datetimes = np.array([datetime.strptime(x, constants.datetime_format.value) for x in datetimes_str])
@@ -117,7 +102,7 @@ def trainModel(config, cur_pollutant, cur_station):
 
     # ******************* Selecting the model **********************
     model = select_1d_model(config)
-    plot_model(model, to_file=join(output_folder, F'{model_name}.png'), show_shapes=True)
+    # plot_model(model, to_file=join(output_folder, F'{model_name}.png'), show_shapes=True)
 
     print("Saving split information...")
     file_name_splits = join(split_info_folder, F'{model_name}.csv')
@@ -152,19 +137,21 @@ def trainModel(config, cur_pollutant, cur_station):
     x_test = X[test_ids, :]
     y_test = Y[test_ids]
 
-    # Plotting some intermediate results
-    import matplotlib.pyplot as plt
-    size = 24 * 60  # Two months of data
+    # ------------------- Plotting some intermediate results
+    size = 24 * 10 # 10 days of data
     start = np.random.randint(0, len(data) - size)
     end = start + size
     plt.figure(figsize=[64, 8])
     x_plot = range(len(X_df.iloc[start:end].index.values))
     y_plot = X_df.iloc[start:end][cur_pollutant].values
     yy_plot = Y_df.iloc[start:end].values
-    viz_obj.plot_1d_data_np(x_plot, [y_plot, yy_plot], title=F"{cur_pollutant}_{cur_station}",
-                            labels=['Current', 'Desired'],
-                            wide_ratio=4,
-                            file_name_prefix=F"{cur_pollutant}_{cur_station}")
+
+    fig, ax = plt.subplots(1,1,figsize=(10,4))
+    ax.plot(x_plot, y_plot, color='r', label='Current')
+    ax.plot(x_plot, yy_plot, color='b',  label='Desired')
+    ax.set_title = F"{cur_pollutant}_{cur_station}"
+    plt.show()
+    # ------------------- Done Plotting some intermediate results
 
     model.fit(x_train, y_train,
                         batch_size=batch_size,
@@ -173,8 +160,17 @@ def trainModel(config, cur_pollutant, cur_station):
                         shuffle=True,
                         callbacks=[logger, save_callback, stop_callback])
 
-    # Evaluate all the groups (train, validation, test)
-    # Unormalize and plot
-
 if __name__ == '__main__':
-    main()
+    config = getTrainingParams()
+    stations = config[LocalTrainingParams.stations]
+    pollutants = config[LocalTrainingParams.pollutants]
+    # It is generating one network for each pollutant for each station
+    # Iterate over all pollutants
+    for cur_pollutant in pollutants:
+        # Iterate over all stations
+        for cur_station in stations:
+            trainModel(config, cur_pollutant, cur_station)
+            # try:
+            #     trainModel(config, cur_pollutant, cur_station)
+            # except Exception as e:
+            #     print(F"ERROR! It has failed for:{cur_pollutant} -- {cur_station}: {e}")
