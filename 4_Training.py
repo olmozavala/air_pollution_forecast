@@ -49,7 +49,7 @@ def trainModel(config, cur_pollutant, cur_station, data, all_stations):
     input_folder = config[TrainingParams.input_folder]
     output_folder = config[TrainingParams.output_folder]
     #
-    output_folder += F"{cur_pollutant}_{cur_station}"
+    output_folder = join(output_folder,F"{cur_pollutant}_{cur_station}")
 
     val_perc = config[TrainingParams.validation_percentage]
     test_perc = config[TrainingParams.test_percentage]

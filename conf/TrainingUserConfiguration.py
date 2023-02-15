@@ -26,8 +26,8 @@ stations_2020 = ["UIZ","AJU" ,"ATI" ,"CUA" ,"SFE" ,"SAG" ,"CUT" ,"PED" ,"TAH" ,"
 data_folder = '/ZION/AirPollutionData/Data/'
 # data_folder = '/data/PollutionData/'
 training_output_folder = '/ZION/AirPollutionData/Training'
-grid_size = 2
-merged_specific_folder = f'{grid_size}_{grid_size}' # We may have multiple folders inside merge depending on the cuadrants
+grid_size = 4
+merged_specific_folder = f'{grid_size*grid_size}' # We may have multiple folders inside merge depending on the cuadrants
 filter_training_hours = False
 start_year = 2010
 end_year = 2019
@@ -76,9 +76,9 @@ def getTrainingParams():
         TrainingParams.output_folder: F"{join(data_folder, constants.training_output_folder.value)}",
         TrainingParams.validation_percentage: .1,
         TrainingParams.test_percentage: 0, # We will test with a diferent day
-        TrainingParams.evaluation_metrics: [restricted_mse, metrics.mean_squared_error],  # Metrics to show in tensor flow in the training
+        TrainingParams.evaluation_metrics: [metrics.mean_squared_error],  # Metrics to show in tensor flow in the training
         # TrainingParams.loss_function: losses.mean_squared_error,  # Loss function to use for the learning
-        TrainingParams.loss_function: restricted_mse,  # Loss function to use for the learning
+        TrainingParams.loss_function: metrics.mean_squared_error,  # Loss function to use for the learning
         TrainingParams.optimizer: Adam(),  # Default values lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=None,
         TrainingParams.batch_size: 200,
         TrainingParams.epochs: 5000,
