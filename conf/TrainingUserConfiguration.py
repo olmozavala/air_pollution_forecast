@@ -11,7 +11,7 @@ from sklearn.metrics import *
 from proj_prediction.metrics import restricted_mse
 import numpy as np
 
-from ai_common.constants.AI_params import ModelParams, AiModels, TrainingParams, ClassificationParams, VisualizationResultsParams
+from ai_common.constants.AI_params import ModelParams, AiModels, TrainingParams, ClassificationParams, VisualizationResultsParams, NormParams
 
 all_stations = ["ACO", "AJM", "AJU", "ARA", "ATI", "AZC", "BJU", "CAM", "CCA", "CES", "CFE", "CHO", "COR", "COY", "CUA"
           ,"CUI", "CUT", "DIC", "EAJ", "EDL", "FAC", "FAN", "GAM", "HAN", "HGM", "IBM", "IMP", "INN", "IZT", "LAA", "LAG", "LLA"
@@ -19,13 +19,15 @@ all_stations = ["ACO", "AJM", "AJU", "ARA", "ATI", "AZC", "BJU", "CAM", "CCA", "
           ,"SHA", "SJA", "SNT", "SUR", "TAC", "TAH", "TAX", "TEC", "TLA", "TLI", "TPN", "UAX", "UIZ", "UNM", "VAL", "VIF", "XAL"
           , "XCH"]
 
-stations_2020 = ["AJU" ,"ATI" ,"CUA" ,"SFE" ,"SAG" ,"CUT" ,"PED" ,"TAH" ,"GAM" ,"IZT" ,"CCA" ,"HGM" ,"LPR" ,
-                 "MGH" ,"CAM" ,"FAC" ,"TLA" ,"MER" ,"XAL" ,"LLA" ,"TLI" ,"UAX" ,"BJU" ,"MPA" ,"UIZ",
+stations_2020 = ["UIZ","AJU" ,"ATI" ,"CUA" ,"SFE" ,"SAG" ,"CUT" ,"PED" ,"TAH" ,"GAM" ,"IZT" ,"CCA" ,"HGM" ,"LPR" ,
+                 "MGH" ,"CAM" ,"FAC" ,"TLA" ,"MER" ,"XAL" ,"LLA" ,"TLI" ,"UAX" ,"BJU" ,"MPA" ,
                  "MON" ,"NEZ" ,"INN" ,"AJM" ,"VIF"]
 
 data_folder = '/ZION/AirPollutionData/Data/'
+# data_folder = '/data/PollutionData/'
 training_output_folder = '/ZION/AirPollutionData/Training'
-merged_specific_folder = '8_8' # We may have multiple folders inside merge depending on the cuadrants
+grid_size = 2
+merged_specific_folder = f'{grid_size}_{grid_size}' # We may have multiple folders inside merge depending on the cuadrants
 filter_training_hours = False
 start_year = 2010
 end_year = 2019
@@ -34,8 +36,7 @@ _debug = False
 
 # =================================== TRAINING ===================================
 # ----------------------------- UM -----------------------------------
-_run_name = F'Filter_Hours_{filter_training_hours}_{start_year}_{end_year}_Bootstrap_Only_Mean_Input_300x2_200_100x6_TimeHV'  # Name of the model, for training and classification
-# _run_name = F'Filter_Hours_{filter_training_hours}_{start_year}_{end_year}_Bootstrap_Only_Mean_Input_300x3_TimeHV'  # Name of the model, for training and classification
+_run_name = F'2023'  # Name of the model, for training and classification
 
 def append_model_params(cur_config):
     model_config = {
@@ -60,7 +61,7 @@ def getMergeParams():
         MergeFilesParams.stations: stations_2020,
         MergeFilesParams.pollutant_tables: ["cont_otres"],
         MergeFilesParams.forecasted_hours: 24,
-        LocalTrainingParams.tot_num_quadrants: 64,
+        LocalTrainingParams.tot_num_quadrants: grid_size * grid_size,
         LocalTrainingParams.num_hours_in_netcdf: 24, # 72 (forecast)
         MergeFilesParams.output_folder: join(data_folder, constants.merge_output_folder.value),
         MergeFilesParams.years: range(2010,2023)
@@ -83,6 +84,7 @@ def getTrainingParams():
         TrainingParams.epochs: 5000,
         TrainingParams.config_name: _run_name,
         TrainingParams.data_augmentation: False,
+        TrainingParams.normalization_type: NormParams.mean_zero,
         LocalTrainingParams.stations: stations_2020,
         LocalTrainingParams.pollutants: ["cont_otres"],
         LocalTrainingParams.forecasted_hours: 24,
@@ -111,13 +113,10 @@ def get_test_file(debug=False):
 def get_makeprediction_config():
 
     results_folder = 'Results'
-    files = glob.glob(join(models_folder,F'{_run_name}*'))
-    files.sort(key=os.path.getmtime)
-    model_file = files[-1]
     cur_config = {
         ClassificationParams.input_file: get_test_file(debug=_debug),
         ClassificationParams.output_folder: F"{join(data_folder, results_folder)}",
-        ClassificationParams.model_weights_file: join(models_folder, model_file),
+        ClassificationParams.model_weights_file: models_folder,  # We are only passing the folder, the model will be loaded automatically
         # ClassificationParams.split_file: join(splits_folder, F"{run_name}.csv"),
         ClassificationParams.split_file: '',
         ClassificationParams.output_file_name: join(training_output_folder,results_folder, F'{_run_name}.csv'),
@@ -126,6 +125,7 @@ def get_makeprediction_config():
         ClassificationParams.show_imgs: False,
         ClassificationParams.save_prediction: True,
         LocalTrainingParams.stations: stations_2020,
+        LocalTrainingParams.pollutants: ['otres'],
         LocalTrainingParams.forecasted_hours: 24,
         ClassificationParams.metrics: {'rmse': mean_squared_error,
                                        'mae': mean_absolute_error,
