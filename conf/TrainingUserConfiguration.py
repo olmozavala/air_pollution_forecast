@@ -77,8 +77,8 @@ def getTrainingParams():
         TrainingParams.validation_percentage: .1,
         TrainingParams.test_percentage: 0, # We will test with a diferent day
         TrainingParams.evaluation_metrics: [metrics.mean_squared_error],  # Metrics to show in tensor flow in the training
-        # TrainingParams.loss_function: losses.mean_squared_error,  # Loss function to use for the learning
-        TrainingParams.loss_function: metrics.mean_squared_error,  # Loss function to use for the learning
+        TrainingParams.loss_function: losses.mean_squared_error,  # Loss function to use for the learning
+        # TrainingParams.loss_function: metrics.mean_squared_error,  # Loss function to use for the learning
         TrainingParams.optimizer: Adam(),  # Default values lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=None,
         TrainingParams.batch_size: 200,
         TrainingParams.epochs: 5000,

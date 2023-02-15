@@ -37,8 +37,8 @@ all_stations = ["UIZ","AJU" ,"ATI" ,"CUA" ,"SFE" ,"SAG" ,"CUT" ,"PED" ,"TAH" ,"G
 evaluate_stations = ["UIZ", "AJU", "ATI"]
 
 # Iterate over the stations
-models_folder = '/data/PollutionData/Training/models/'
-data_folder = '/data/PollutionData/MergedDataCSV/8_8/'
+models_folder = '/ZION/AirPollutionData/Data/Training/cont_otres_UIZ/models/'
+data_folder = '/ZION/AirPollutionData/Data/MergedDataCSV/16/'
 
 test_year = 2019
 
@@ -126,6 +126,7 @@ for cur_station in evaluate_stations:
     plot_this_many= 24*60
     plt.plot(x_plot[0:plot_this_many], y_plot[0:plot_this_many], label='Original')
     plt.plot(x_plot[0:plot_this_many], output_nn_all[0:plot_this_many,0], label='Forecasted')
+    plt.legend()
     plt.show()
 
     print(F'\t Done! Elapsed time {time.time() - t0:0.2f} seg')

@@ -173,7 +173,6 @@ def merge_by_year(config):
 
             print(F"\t\tFiltering dates for the year {current_year}")
             start_date = F'{current_year}-01-01'
-            # end_date = F'{current_year}-01-05'
             end_date = F'{current_year+1}-01-01'
             datetimes = pd.to_datetime(data_pollutants.index)
             not_valid_dates = np.logical_not((datetimes >= np.datetime64(start_date)) & (datetimes < np.datetime64(end_date)))

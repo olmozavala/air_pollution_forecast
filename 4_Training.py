@@ -121,7 +121,8 @@ def trainModel(config, cur_pollutant, cur_station, data, all_stations):
     # ================ Split definition =================
     [train_ids, val_ids, test_ids] = utilsNN.split_train_validation_and_test(tot_examples,
                                                                              val_percentage=val_perc,
-                                                                             test_percentage=test_perc)
+                                                                             test_percentage=test_perc,
+                                                                             shuffle_ids=False)
 
     print("Train examples (total:{}) :{}".format(len(train_ids), rows_to_read[train_ids]))
     print("Validation examples (total:{}) :{}:".format(len(val_ids), rows_to_read[val_ids]))
