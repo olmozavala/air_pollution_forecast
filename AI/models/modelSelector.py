@@ -1,4 +1,4 @@
-from conf.AI_params import *
+from ai_common.constants.AI_params import *
 import AI.models.modelBuilder3D as model_builder_3d
 import AI.models.modelBuilder2D as model_builder_2d
 import AI.models.modelBuilder1D as model_builder_1d

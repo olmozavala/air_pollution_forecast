@@ -2,7 +2,7 @@ from conf.localConstants import constants
 
 from conf.TrainingUserConfiguration import getMergeParams
 from conf.params import LocalTrainingParams, MergeFilesParams
-from constants.AI_params import TrainingParams
+from ai_common.constants.AI_params import TrainingParams
 from AI.utils import getQuadrantsAsString
 from datetime import date, datetime, timedelta
 from os.path import join
@@ -173,7 +173,6 @@ def merge_by_year(config):
 
             print(F"\t\tFiltering dates for the year {current_year}")
             start_date = F'{current_year}-01-01'
-            # end_date = F'{current_year}-01-05'
             end_date = F'{current_year+1}-01-01'
             datetimes = pd.to_datetime(data_pollutants.index)
             not_valid_dates = np.logical_not((datetimes >= np.datetime64(start_date)) & (datetimes < np.datetime64(end_date)))
@@ -204,7 +203,7 @@ def merge_by_year(config):
 
             print("\tSaving merged database ...")
             output_file_name = F"{cur_pollutant}_AllStations.csv"
-            cur_output_folder = join(output_folder, date.today().strftime('%Y_%m_%d'))
+            cur_output_folder = join(output_folder, f"{num_quadrants}")
             if not(os.path.exists(cur_output_folder)):
                 os.makedirs(cur_output_folder)
             x_data_merged_df.to_csv(join(cur_output_folder, F"{current_year}_{output_file_name}"),

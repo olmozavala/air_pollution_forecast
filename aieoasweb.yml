@@ -31,3 +31,4 @@ dependencies:
     - geopandas=*.*
     - dash=*.*
     - dash-bootstrap-components=*.*
+    - h5py=*.*

@@ -10,7 +10,7 @@ from conf.params import LocalTrainingParams
 
 from datetime import date, datetime, timedelta
 import tensorflow as tf
-# from tensorflow.keras.utils import plot_model
+from tensorflow.keras.utils import plot_model
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
@@ -20,11 +20,36 @@ import matplotlib.pyplot as plt
 
 tf.config.experimental.VirtualDeviceConfiguration(memory_limit=12288)
 
-def trainModel(config, cur_pollutant, cur_station, year=-1):
+
+def readData(config, cur_pollutant, start_year, end_year):
+    '''
+    Reads all the years for the selected pollutant for all the stations
+    :param config:
+    :param cur_pollutant:
+    :param start_year:
+    :param end_year:
+    :param all_stations:
+    :return:
+    '''
+    input_folder = config[TrainingParams.input_folder]
+    # -------- Reading all the years in a single data frame (all stations)
+    for c_year in range(start_year, end_year+1):
+        db_file_name = join(input_folder, F"{c_year}_{cur_pollutant}_AllStations.csv") # Just for testing
+        print(F"============ Reading data for: {cur_pollutant}: {db_file_name}")
+        if c_year == start_year:
+            data = pd.read_csv(db_file_name, index_col=0)
+        else:
+            data = pd.concat([data, pd.read_csv(db_file_name, index_col=0)])
+
+    return data
+
+def trainModel(config, cur_pollutant, cur_station, data, all_stations):
     """Trying to separate things so that tf 'cleans' the memory """
 
     input_folder = config[TrainingParams.input_folder]
     output_folder = config[TrainingParams.output_folder]
+    #
+    output_folder = join(output_folder,F"{cur_pollutant}_{cur_station}")
 
     val_perc = config[TrainingParams.validation_percentage]
     test_perc = config[TrainingParams.test_percentage]
@@ -35,6 +60,7 @@ def trainModel(config, cur_pollutant, cur_station, year=-1):
     model_name_user = config[TrainingParams.config_name]
     optimizer = config[TrainingParams.optimizer]
     forecasted_hours = config[LocalTrainingParams.forecasted_hours]
+    norm_type = config[TrainingParams.normalization_type]
 
     split_info_folder = join(output_folder, 'Splits')
     parameters_folder = join(output_folder, 'Parameters')
@@ -48,10 +74,11 @@ def trainModel(config, cur_pollutant, cur_station, year=-1):
 
     viz_obj = EOAImageVisualizer(output_folder=imgs_folder, disp_images=False)
 
-    # db_file_name = join(input_folder, F"{cur_pollutant}_{cur_station}.csv")
-    db_file_name = join(input_folder, F"{cur_pollutant}_{cur_station}_red.csv") # Just for testing
-    print(F"============ Reading data for: {cur_pollutant} -- {cur_station}: {db_file_name}")
-    data = pd.read_csv(db_file_name, index_col=0)
+    # -------- Removing not used stations
+    remove_columns = [x for x in all_stations if x.find(cur_station) == -1]
+    data = data.drop(columns=remove_columns)
+    # -------- Remove nans
+    data = data.dropna()
 
     config[ModelParams.INPUT_SIZE] = len(data.columns)
     print(F'Data shape: {data.shape} Data axes {data.axes}')
@@ -61,14 +88,18 @@ def trainModel(config, cur_pollutant, cur_station, year=-1):
     datetimes_str = data.index.values
     datetimes = np.array([datetime.strptime(x, constants.datetime_format.value) for x in datetimes_str])
 
-    scaler = preprocessing.MinMaxScaler()
+    if norm_type == NormParams.min_max:
+        scaler = preprocessing.MinMaxScaler()
+    if norm_type == NormParams.mean_zero:
+        scaler = preprocessing.StandardScaler()
+
     scaler = scaler.fit(data)
     data_norm_np = scaler.transform(data)
     data_norm_df = DataFrame(data_norm_np, columns=data.columns, index=data.index)
     print(F'Done!')
 
     # Filtering only dates where there is data "forecasted hours after" (24 hrs after)
-    print(F"\tBuilding X and Y ....")
+    print(F"Building X and Y ....")
     accepted_times_idx = []
     y_times_idx = []
     for i, c_datetime in enumerate(datetimes):
@@ -78,7 +109,7 @@ def trainModel(config, cur_pollutant, cur_station, year=-1):
             y_times_idx.append(np.argwhere(forecasted_datetime == datetimes)[0][0])
 
     X_df = data_norm_df.loc[datetimes_str[accepted_times_idx]]
-    Y_df = data_norm_df.loc[datetimes_str[y_times_idx]][cur_pollutant]
+    Y_df = data_norm_df.loc[datetimes_str[y_times_idx]][cur_station]
     X = X_df.values
     Y = Y_df.values
 
@@ -90,7 +121,8 @@ def trainModel(config, cur_pollutant, cur_station, year=-1):
     # ================ Split definition =================
     [train_ids, val_ids, test_ids] = utilsNN.split_train_validation_and_test(tot_examples,
                                                                              val_percentage=val_perc,
-                                                                             test_percentage=test_perc)
+                                                                             test_percentage=test_perc,
+                                                                             shuffle_ids=False)
 
     print("Train examples (total:{}) :{}".format(len(train_ids), rows_to_read[train_ids]))
     print("Validation examples (total:{}) :{}:".format(len(val_ids), rows_to_read[val_ids]))
@@ -98,13 +130,14 @@ def trainModel(config, cur_pollutant, cur_station, year=-1):
 
     print("Selecting and generating the model....")
     now = datetime.utcnow().strftime("%Y_%m_%d_%H_%M")
-    model_name = F'{model_name_user}_{now}_{cur_pollutant}_{cur_station}'
+    model_name = F'{model_name_user}_{cur_pollutant}_{cur_station}_{now}'
 
     # ******************* Selecting the model **********************
     model = select_1d_model(config)
-    # plot_model(model, to_file=join(output_folder, F'{model_name}.png'), show_shapes=True)
+    plot_model(model, to_file=join(output_folder, F'{model_name}.png'), show_shapes=True)
 
     print("Saving split information...")
+
     file_name_splits = join(split_info_folder, F'{model_name}.csv')
     info_splits = DataFrame({F'Train({len(train_ids)})': train_ids})
     info_splits[F'Validation({len(val_ids)})'] = 0
@@ -114,8 +147,8 @@ def trainModel(config, cur_pollutant, cur_station, year=-1):
     info_splits.to_csv(file_name_splits, index=None)
 
     print(F"Norm params: {scaler.get_params()}")
-    file_name_normparams = join(parameters_folder, F'{model_name}.txt')
-    utilsNN.save_norm_params(file_name_normparams, NormParams.min_max, scaler)
+    file_name_normparams = join(parameters_folder, F'{model_name}.csv')
+    utilsNN.save_norm_params(file_name_normparams, norm_type, scaler)
     info_splits.to_csv(file_name_splits, index=None)
 
     print("Getting callbacks ...")
@@ -143,13 +176,14 @@ def trainModel(config, cur_pollutant, cur_station, year=-1):
     end = start + size
     plt.figure(figsize=[64, 8])
     x_plot = range(len(X_df.iloc[start:end].index.values))
-    y_plot = X_df.iloc[start:end][cur_pollutant].values
+    y_plot = X_df.iloc[start:end][cur_station].values
     yy_plot = Y_df.iloc[start:end].values
 
     fig, ax = plt.subplots(1,1,figsize=(10,4))
     ax.plot(x_plot, y_plot, color='r', label='Current')
     ax.plot(x_plot, yy_plot, color='b',  label='Desired')
     ax.set_title = F"{cur_pollutant}_{cur_station}"
+    plt.legend()
     plt.show()
     # ------------------- Done Plotting some intermediate results
 
@@ -164,13 +198,16 @@ if __name__ == '__main__':
     config = getTrainingParams()
     stations = config[LocalTrainingParams.stations]
     pollutants = config[LocalTrainingParams.pollutants]
+    start_year = 2010
+    end_year = 2019
     # It is generating one network for each pollutant for each station
     # Iterate over all pollutants
     for cur_pollutant in pollutants:
+        # Read the data for all stations for current pollutant
+        data = readData(config, cur_pollutant, start_year, end_year)
         # Iterate over all stations
         for cur_station in stations:
-            trainModel(config, cur_pollutant, cur_station)
-            # try:
-            #     trainModel(config, cur_pollutant, cur_station)
-            # except Exception as e:
-            #     print(F"ERROR! It has failed for:{cur_pollutant} -- {cur_station}: {e}")
+            try:
+                trainModel(config, cur_pollutant, cur_station, data, stations)
+            except Exception as e:
+                print(F"ERROR! It has failed for:{cur_pollutant} -- {cur_station}: {e}")
