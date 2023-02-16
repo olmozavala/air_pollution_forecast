@@ -1,3 +1,6 @@
+import sys
+sys.path.append('./eoas_pyutils')
+
 from ai_common.constants.AI_params import NormParams, TrainingParams, ModelParams
 import ai_common.training.trainingutils as utilsNN
 from ai_common.models.modelSelector import select_1d_model
