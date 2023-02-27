@@ -89,7 +89,7 @@ def readMeteorologicalData(datetimes, forecasted_hours, num_hours_in_netcdf, WRF
                 required_files.append(netcdf_file)
 
         if not(files_available):
-            break
+            continue
 
         # Loading all the required files for this date
         files_not_loaded = [x for x in required_files if x not in loaded_files]
@@ -169,6 +169,7 @@ def merge_by_year(config):
 
         # Iterate over all the years
         for current_year in years:
+        # for current_year in [2018]:
             print(F"\tDone!  Not found: {notfound}")
 
             print(F"\t\tFiltering dates for the year {current_year}")
@@ -274,4 +275,3 @@ if __name__ == '__main__':
     config = getMergeParams()
     # merge_by_station(config)
     merge_by_year(config)
-

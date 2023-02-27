@@ -112,8 +112,8 @@ def runParallel(year):
         process_files(user_config, all_path_names, all_file_names, all_dates, [], mode=wrfFileType.new)
     print("Done!")
 
-def main():
 
+if __name__== '__main__':
     # Reads user configuration
     user_config = getPreprocWRFParams()
     input_folder = user_config[PreprocParams.input_folder_new]
@@ -127,6 +127,3 @@ def main():
     NUMBER_PROC = 20
     p = Pool(NUMBER_PROC)
     p.map(runParallel, range(start_year, end_year))
-
-if __name__== '__main__':
-    main()
