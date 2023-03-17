@@ -21,10 +21,10 @@ def getMeteoTables():
 
 def getContaminantsAndTables():
     cont = getContaminants()
-    tables = getTables()
+    tables = getContaminantsTables()
     return {cont[i]: tables[i] for i in range(len(cont))}
 
-def getTables():
+def getContaminantsTables():
     return ['cont_pmco', 'cont_pmdoscinco', 'cont_nox', 'cont_codos', 'cont_co', 'cont_nodos',
             'cont_no', 'cont_otres', 'cont_sodos', 'cont_pmdiez']
 

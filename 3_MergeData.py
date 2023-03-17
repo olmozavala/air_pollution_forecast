@@ -145,72 +145,100 @@ def merge_by_year(config):
         # Obtain all the 'available pollution dates'
         print(F"\tReading data...")
         notfound = []
-        for cur_station in stations:
-            print(F"============  {cur_pollutant} -- {cur_station} ==========================")
-            db_file_name = join(input_folder, constants.db_output_folder.value,
-                                F"{cur_pollutant}_{cur_station}.csv")
+        new_pollutant = True
+        try:
+            for cur_station in stations:
+                print(F"============  {cur_pollutant} -- {cur_station} ==========================")
+                db_file_name = join(input_folder, constants.db_output_folder.value,
+                                    F"{cur_pollutant}_{cur_station}.csv")
 
-            if not (os.path.exists(db_file_name)):
-                notfound.append(cur_station)
-                continue
+                if not (os.path.exists(db_file_name)):
+                    notfound.append(cur_station)
+                    continue
 
-            # These are integer values so we can make the reading more efficiently
-            if cur_pollutant in ['cont_otres']:
-                data_cur_station = pd.read_csv(db_file_name,  index_col=0, parse_dates=True, dtype={cur_pollutant: np.int32})
-            else:
-                data_cur_station = pd.read_csv(db_file_name, index_col=0, parse_dates=True, )
+                # These are integer values so we can make the reading more efficiently
+                if cur_pollutant in ['cont_otres']:
+                    data_cur_station = pd.read_csv(db_file_name,  index_col=0, parse_dates=True, dtype={cur_pollutant: np.int32})
+                else:
+                    data_cur_station = pd.read_csv(db_file_name, index_col=0, parse_dates=True, )
 
-            data_cur_station = data_cur_station.rename(columns={cur_pollutant: cur_station})
+                data_cur_station = data_cur_station.rename(columns={cur_pollutant: cur_station})
 
-            if data_pollutants is None:
-                data_pollutants = data_cur_station
-            else:
-                data_pollutants = pd.concat([data_pollutants, data_cur_station], axis=1)
+                if new_pollutant:
+                    data_pollutants = data_cur_station
+                    new_pollutant =  False
+                else:
+                    data_pollutants = pd.concat([data_pollutants, data_cur_station], axis=1)
 
-        # Iterate over all the years
-        for current_year in years:
-        # for current_year in [2018]:
-            print(F"\tDone!  Not found: {notfound}")
+            # Iterate over all the years
+            for current_year in years:
+            # for current_year in [2018]:
+                print(F"\tDone!  Not found: {notfound}")
 
-            print(F"\t\tFiltering dates for the year {current_year}")
-            start_date = F'{current_year}-01-01'
-            end_date = F'{current_year+1}-01-01'
-            datetimes = pd.to_datetime(data_pollutants.index)
-            not_valid_dates = np.logical_not((datetimes >= np.datetime64(start_date)) & (datetimes < np.datetime64(end_date)))
-            data_pollutants_filtered = data_pollutants.drop(data_pollutants.index[not_valid_dates])
-            # Reloading the dates
-            datetimes = pd.to_datetime(data_pollutants_filtered.index)
+                print(F"\t\tFiltering dates for the year {current_year}")
+                start_date = F'{current_year}-01-01'
+                end_date = F'{current_year+1}-01-01'
+                datetimes = pd.to_datetime(data_pollutants.index)
+                not_valid_dates = np.logical_not((datetimes >= np.datetime64(start_date)) & (datetimes < np.datetime64(end_date)))
+                data_pollutants_filtered = data_pollutants.drop(data_pollutants.index[not_valid_dates])
+                # Reloading the dates
+                datetimes = pd.to_datetime(data_pollutants_filtered.index)
 
-            # Filtering dates that are not available in the meteorological data
-            print(F"Filtering dates with meteorological information")
-            not_meteo_idxs = filterDatesWithMeteorologicalData(datetimes, forecasted_hours, num_hours_in_netcdf,
-                                                               WRF_data_folder_name)
+                # Filtering dates that are not available in the meteorological data
+                print(F"Filtering dates with meteorological information")
+                not_meteo_idxs = filterDatesWithMeteorologicalData(datetimes, forecasted_hours, num_hours_in_netcdf,
+                                                                   WRF_data_folder_name)
 
-            # Remove pollutant data where we don't have meteorolical data (removed from training examples)
-            data_pollutants_filtered = data_pollutants_filtered.drop([datetimes[x] for x in not_meteo_idxs])
+                # Remove pollutant data where we don't have meteorolical data (removed from training examples)
+                data_pollutants_filtered = data_pollutants_filtered.drop([datetimes[x] for x in not_meteo_idxs])
 
-            # Refresh valid dates
-            tot_examples = len(data_pollutants_filtered.index)
-            print(F"\tOriginal examples: {len(datetimes)} new examples: {tot_examples}")
-            datetimes = pd.to_datetime(data_pollutants_filtered.index)
+                # Refresh valid dates
+                tot_examples = len(data_pollutants_filtered.index)
+                print(F"\tOriginal examples: {len(datetimes)} new examples: {tot_examples}")
+                datetimes = pd.to_datetime(data_pollutants_filtered.index)
 
-            x_data_meteo, all_meteo_columns = readMeteorologicalData(datetimes, forecasted_hours, num_hours_in_netcdf,
-                                                                     WRF_data_folder_name, tot_examples)
+                x_data_meteo, all_meteo_columns = readMeteorologicalData(datetimes, forecasted_hours, num_hours_in_netcdf,
+                                                                         WRF_data_folder_name, tot_examples)
 
-            x_data_merged_df = DataFrame(x_data_meteo, columns=all_meteo_columns, index=data_pollutants_filtered.index)
-            final_stations = data_pollutants_filtered.columns.values
-            for cur_station in final_stations:
-                x_data_merged_df[cur_station] = data_pollutants_filtered[cur_station]
+                # Initialize the merged dataset with the meteorological data (using the same index/dates than the pollutants)
+                x_data_merged_df = DataFrame(x_data_meteo, columns=all_meteo_columns, index=data_pollutants_filtered.index)
 
-            print("\tSaving merged database ...")
-            output_file_name = F"{cur_pollutant}_AllStations.csv"
-            cur_output_folder = join(output_folder, f"{num_quadrants}")
-            if not(os.path.exists(cur_output_folder)):
-                os.makedirs(cur_output_folder)
-            x_data_merged_df.to_csv(join(cur_output_folder, F"{current_year}_{output_file_name}"),
-                                    float_format="%.2f",
-                                    index_label=constants.index_label.value)
-            print("\tDone!")
+                # ---------- Add the times columns (sin_day, cos_day, sin_year, cos_year, sin_week, cos_week)
+                time_cols = ['sin_day', 'cos_day', 'sin_year', 'cos_year', 'sin_week', 'cos_week']
+                # Incorporate dates into the merged dataset sin and cosines
+                day = 24 * 60 * 60
+                week = day * 7
+                year = (365.2425) * day
+
+                sin_day = np.array([np.sin(x.timestamp() * (2 * np.pi / day)) for x in datetimes])
+                cos_day = np.array([np.cos(x.timestamp() * (2 * np.pi / day)) for x in datetimes])
+                sin_week  = np.array([np.sin(x.timestamp() * (2 * np.pi / week)) for x in datetimes])
+                cos_week  = np.array([np.sin(x.timestamp() * (2 * np.pi / week)) for x in datetimes])
+                sin_year  = np.array([np.sin(x.timestamp() * (2 * np.pi / year)) for x in datetimes])
+                cos_year  = np.array([np.sin(x.timestamp() * (2 * np.pi / year)) for x in datetimes])
+                time_values = np.array([sin_day, cos_day, sin_year, cos_year, sin_week, cos_week])
+
+                for idx, cur_time_col in enumerate(time_cols):
+                    x_data_merged_df[cur_time_col] = time_values[idx]
+
+                # ---------------- Here we add the pollutants for each station (only one pollutant per station)
+                final_stations = data_pollutants_filtered.columns.values
+                for cur_station in final_stations:
+                    x_data_merged_df[cur_station] = data_pollutants_filtered[cur_station]
+
+                print("\tSaving merged database ...")
+                output_file_name = F"{cur_pollutant}_AllStations.csv"
+                cur_output_folder = join(output_folder, f"{num_quadrants}")
+                if not(os.path.exists(cur_output_folder)):
+                    os.makedirs(cur_output_folder)
+                x_data_merged_df.to_csv(join(cur_output_folder, F"{current_year}_{output_file_name}"),
+                                        float_format="%.2f",
+                                        index_label=constants.index_label.value)
+                print("\tDone!")
+
+        except Exception as e:
+            print(F"---------- ERROR !!!!!!!!!! Failed for pollutant {cur_pollutant}: {e}")
+
 
 
 def merge_by_station(config):

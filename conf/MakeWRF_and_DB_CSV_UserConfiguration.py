@@ -45,7 +45,7 @@ def getPreprocDBParams():
     '''
     make_csv_config= {
         # DBToCSVParams.tables: [getTables()[0]],
-        DBToCSVParams.tables: getTables(),
+        DBToCSVParams.tables: getContaminantsTables(),
         # DBToCSVParams.stations: ["AJM"],
         DBToCSVParams.stations: ["ACO", "AJM", "AJU", "ARA", "ATI", "AZC", "BJU", "CAM", "CCA", "CES", "CFE", "CHO", "COR", "COY", "CUA"
               ,"CUI", "CUT", "DIC", "EAJ", "EDL", "FAC", "FAN", "GAM", "HAN", "HGM", "IBM", "IMP", "INN", "IZT", "LAA", "LAG", "LLA"

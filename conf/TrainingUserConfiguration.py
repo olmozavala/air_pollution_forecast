@@ -6,6 +6,7 @@ import tensorflow.keras.metrics as metrics
 import tensorflow.keras.activations as activations
 import tensorflow.keras.losses as losses
 from os.path import join
+from db.names import getContaminantsTables
 import os
 from sklearn.metrics import *
 from proj_prediction.metrics import restricted_mse
@@ -30,7 +31,7 @@ grid_size = 4
 merged_specific_folder = f'{grid_size*grid_size}' # We may have multiple folders inside merge depending on the cuadrants
 filter_training_hours = False
 start_year = 2010
-end_year = 2019
+end_year = 2012
 _test_year = 2015
 _debug = False
 
@@ -59,7 +60,8 @@ def getMergeParams():
         MergeFilesParams.input_folder: data_folder,
         # MergeFilesParams.stations: ["ACO", "AJM"],
         MergeFilesParams.stations: stations_2020,
-        MergeFilesParams.pollutant_tables: ["cont_otres"],
+        # MergeFilesParams.pollutant_tables: ["cont_otres"], # One merged file per pollutant
+        MergeFilesParams.pollutant_tables: getContaminantsTables(), # One merged file per pollutant
         MergeFilesParams.forecasted_hours: 24,
         LocalTrainingParams.tot_num_quadrants: grid_size * grid_size,
         LocalTrainingParams.num_hours_in_netcdf: 24, # 72 (forecast)
