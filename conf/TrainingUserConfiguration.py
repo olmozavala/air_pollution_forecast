@@ -1,7 +1,7 @@
 from conf.params import MergeFilesParams, LocalTrainingParams
 import glob
 from conf.localConstants import constants
-from tensorflow.keras.optimizers import *
+from tensorflow.keras.optimizers import Adam, SGD
 import tensorflow.keras.metrics as metrics
 import tensorflow.keras.activations as activations
 import tensorflow.keras.losses as losses
@@ -26,7 +26,7 @@ stations_2020 = ["UIZ","AJU" ,"ATI" ,"CUA" ,"SFE" ,"SAG" ,"CUT" ,"PED" ,"TAH" ,"
 
 data_folder = '/ZION/AirPollutionData/Data/'
 # data_folder = '/data/PollutionData/'
-training_output_folder = '/ZION/AirPollutionData/Training'
+training_output_folder = '/ZION/AirPollutionData/TrainingTESTOZ'
 grid_size = 4
 merged_specific_folder = f'{grid_size*grid_size}' # We may have multiple folders inside merge depending on the cuadrants
 filter_training_hours = False
@@ -75,14 +75,15 @@ def getMergeParams():
 def getTrainingParams():
     cur_config = {
         TrainingParams.input_folder: join(data_folder, constants.merge_output_folder.value, merged_specific_folder),
-        TrainingParams.output_folder: F"{join(data_folder, constants.training_output_folder.value)}",
+        # TrainingParams.output_folder: F"{join(data_folder, constants.training_output_folder.value)}",
+        TrainingParams.output_folder: F"{join(data_folder, 'TrainingTestsOZ')}",
         TrainingParams.validation_percentage: .1,
-        TrainingParams.test_percentage: 0, # We will test with a diferent day
+        TrainingParams.test_percentage: .1, # If training with 10 years, we test on the last one
         TrainingParams.evaluation_metrics: [metrics.mean_squared_error],  # Metrics to show in tensor flow in the training
         TrainingParams.loss_function: losses.mean_squared_error,  # Loss function to use for the learning
         # TrainingParams.loss_function: metrics.mean_squared_error,  # Loss function to use for the learning
-        TrainingParams.optimizer: Adam(),  # Default values lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=None,
-        TrainingParams.batch_size: 200,
+        TrainingParams.optimizer: SGD(lr=.001),  # Default values lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=None,
+        TrainingParams.batch_size: 1000,
         TrainingParams.epochs: 5000,
         TrainingParams.config_name: _run_name,
         TrainingParams.data_augmentation: False,
@@ -90,7 +91,6 @@ def getTrainingParams():
         LocalTrainingParams.stations: stations_2020,
         LocalTrainingParams.pollutants: ["cont_otres"],
         LocalTrainingParams.forecasted_hours: 24,
-        LocalTrainingParams.tot_num_quadrants: 64,  # 8x8
         LocalTrainingParams.num_hours_in_netcdf: 24,
         LocalTrainingParams.years: range(start_year, end_year),
         LocalTrainingParams.debug: _debug,

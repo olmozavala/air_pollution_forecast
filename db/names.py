@@ -25,8 +25,8 @@ def getContaminantsAndTables():
     return {cont[i]: tables[i] for i in range(len(cont))}
 
 def getContaminantsTables():
-    return ['cont_pmco', 'cont_pmdoscinco', 'cont_nox', 'cont_codos', 'cont_co', 'cont_nodos',
-            'cont_no', 'cont_otres', 'cont_sodos', 'cont_pmdiez']
+    return ['cont_otres', 'cont_pmco', 'cont_pmdoscinco', 'cont_nox', 'cont_codos', 'cont_co', 'cont_nodos',
+            'cont_no',  'cont_sodos', 'cont_pmdiez']
 
 def getContaminants():
     return ['pmco', 'pm2', 'nox', 'co2', 'co', 'no2', 'no', 'o3', 'so2', 'pm10']

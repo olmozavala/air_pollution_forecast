@@ -156,7 +156,7 @@ def merge_by_year(config):
                     notfound.append(cur_station)
                     continue
 
-                # These are integer values so we can make the reading more efficiently
+                # Otres are integer values so we can make the reading more efficiently
                 if cur_pollutant in ['cont_otres']:
                     data_cur_station = pd.read_csv(db_file_name,  index_col=0, parse_dates=True, dtype={cur_pollutant: np.int32})
                 else:
@@ -213,9 +213,9 @@ def merge_by_year(config):
                 sin_day = np.array([np.sin(x.timestamp() * (2 * np.pi / day)) for x in datetimes])
                 cos_day = np.array([np.cos(x.timestamp() * (2 * np.pi / day)) for x in datetimes])
                 sin_week  = np.array([np.sin(x.timestamp() * (2 * np.pi / week)) for x in datetimes])
-                cos_week  = np.array([np.sin(x.timestamp() * (2 * np.pi / week)) for x in datetimes])
+                cos_week  = np.array([np.cos(x.timestamp() * (2 * np.pi / week)) for x in datetimes])
                 sin_year  = np.array([np.sin(x.timestamp() * (2 * np.pi / year)) for x in datetimes])
-                cos_year  = np.array([np.sin(x.timestamp() * (2 * np.pi / year)) for x in datetimes])
+                cos_year  = np.array([np.cos(x.timestamp() * (2 * np.pi / year)) for x in datetimes])
                 time_values = np.array([sin_day, cos_day, sin_year, cos_year, sin_week, cos_week])
 
                 for idx, cur_time_col in enumerate(time_cols):

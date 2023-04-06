@@ -13,15 +13,19 @@ from conf.params import LocalTrainingParams
 
 from datetime import date, datetime, timedelta
 import tensorflow as tf
-from tensorflow.keras.utils import plot_model
+# from tensorflow.keras.utils import plot_model
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
 from sklearn import preprocessing
 from os.path import join
 import matplotlib.pyplot as plt
+import os
+import time
 
-tf.config.experimental.VirtualDeviceConfiguration(memory_limit=12288)
+# tf.config.experimental.VirtualDeviceConfiguration(memory_limit=12288)
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 
 def readData(config, cur_pollutant, start_year, end_year):
@@ -87,10 +91,10 @@ def trainModel(config, cur_pollutant, cur_station, data, all_stations):
     print(F'Data shape: {data.shape} Data axes {data.axes}')
     print("Done!")
 
-    print("Normalizing data....")
     datetimes_str = data.index.values
     datetimes = np.array([datetime.strptime(x, constants.datetime_format.value) for x in datetimes_str])
 
+    print("Normalizing data....")
     if norm_type == NormParams.min_max:
         scaler = preprocessing.MinMaxScaler()
     if norm_type == NormParams.mean_zero:
@@ -105,16 +109,38 @@ def trainModel(config, cur_pollutant, cur_station, data, all_stations):
     print(F"Building X and Y ....")
     accepted_times_idx = []
     y_times_idx = []
+    t = time.time()
     for i, c_datetime in enumerate(datetimes):
         forecasted_datetime = (c_datetime + timedelta(hours=forecasted_hours))
-        if forecasted_datetime in datetimes:
+        if forecasted_datetime in datetimes[i:i+forecasted_hours*2]:
             accepted_times_idx.append(i)
             y_times_idx.append(np.argwhere(forecasted_datetime == datetimes)[0][0])
 
+    print(F"Done! Time: {time.time() - t} seconds")
+
     X_df = data_norm_df.loc[datetimes_str[accepted_times_idx]]
     Y_df = data_norm_df.loc[datetimes_str[y_times_idx]][cur_station]
+
     X = X_df.values
     Y = Y_df.values
+
+    bootstrap = True
+    bootstrap_perc = 0.8
+    boostrap_factor = 2  # Number of times to repeat the bootstrap
+    if bootstrap:
+        # -------- Bootstrapping the data
+        print("Bootstrapping the data...")
+        percentiles = X_df[cur_station].quantile([bootstrap_perc])  # Obtain the percentile
+        idxs_x = X[:,-1] > percentiles[bootstrap_perc]  # Obtain the indexes of the percentile for current time
+        idxs_y = Y > percentiles[bootstrap_perc]  # Obtain the indexes of the percentile for the forecasted time
+        idxs = idxs_y | idxs_x  # Merge both cases (we boostrap if the current time or the forecasted time are in the percentile)
+        X_temp = X.copy()
+        Y_temp = Y.copy()
+        for i in range(boostrap_factor):
+            X = np.concatenate((X, X_temp[idxs]))
+            Y = np.concatenate((Y, Y_temp[idxs]))
+
+    print("Done!")
 
     print(F'X shape: {X.shape} Y shape: {Y.shape}')
 
@@ -125,7 +151,7 @@ def trainModel(config, cur_pollutant, cur_station, data, all_stations):
     [train_ids, val_ids, test_ids] = utilsNN.split_train_validation_and_test(tot_examples,
                                                                              val_percentage=val_perc,
                                                                              test_percentage=test_perc,
-                                                                             shuffle_ids=False)
+                                                                             shuffle_ids=True)
 
     print("Train examples (total:{}) :{}".format(len(train_ids), rows_to_read[train_ids]))
     print("Validation examples (total:{}) :{}:".format(len(val_ids), rows_to_read[val_ids]))
@@ -137,7 +163,7 @@ def trainModel(config, cur_pollutant, cur_station, data, all_stations):
 
     # ******************* Selecting the model **********************
     model = select_1d_model(config)
-    plot_model(model, to_file=join(output_folder, F'{model_name}.png'), show_shapes=True)
+    # plot_model(model, to_file=join(output_folder, F'{model_name}.png'), show_shapes=True)
 
     print("Saving split information...")
 
@@ -156,7 +182,7 @@ def trainModel(config, cur_pollutant, cur_station, data, all_stations):
 
     print("Getting callbacks ...")
 
-    [logger, save_callback, stop_callback] = utilsNN.get_all_callbacks(model_name=model_name,
+    all_callbacks = utilsNN.get_all_callbacks(model_name=model_name,
                                                                        early_stopping_func=F'val_{eval_metrics[0].__name__}',
                                                                        weights_folder=weights_folder,
                                                                        logs_folder=logs_folder)
@@ -195,7 +221,7 @@ def trainModel(config, cur_pollutant, cur_station, data, all_stations):
                         epochs=epochs,
                         validation_data=(x_val, y_val),
                         shuffle=True,
-                        callbacks=[logger, save_callback, stop_callback])
+                        callbacks=all_callbacks)
 
 if __name__ == '__main__':
     config = getTrainingParams()
