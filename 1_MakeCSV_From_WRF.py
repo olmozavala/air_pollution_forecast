@@ -10,7 +10,7 @@ import xarray as xr
 # from img_viz.eoa_viz import EOAImageVisualizer
 from multiprocessing import Pool
 
-from io_netcdf.inout import read_wrf_files_names, read_wrf_old_files_names, saveFlattenedVariables
+from proj_io.inout import read_wrf_files_names, read_wrf_old_files_names, saveFlattenedVariables
 
 def process_files(user_config, all_path_names, all_file_names, all_dates, all_files_coords_old=[], mode=wrfFileType.new):
     variable_names = user_config[PreprocParams.variables]
@@ -29,7 +29,7 @@ def process_files(user_config, all_path_names, all_file_names, all_dates, all_fi
         cur_xr_ds = xr.open_dataset(all_path_names[file_idx], decode_times=False)
         # Printing the summary of the data
         # viz_obj.xr_summary(cur_xr_ds)
-        print(F"\tCropping...")
+        # print(F"\tCropping...")
         # Crops the desired variable_names
         try:
             if mode == wrfFileType.new:
@@ -48,11 +48,11 @@ def process_files(user_config, all_path_names, all_file_names, all_dates, all_fi
             continue
 
         # viz_obj.xr_summary(cropped_xr_ds)
-        print("\tDone!")
+        # print("\tDone!")
 
         # For debugging, visualizing results
-        print("\tVisualizing cropped results...")
-        file_text = F"{all_file_names[file_idx]}"
+        # print("\tVisualizing cropped results...")
+        # file_text = F"{all_file_names[file_idx]}"
         # viz_obj.plot_3d_data_xarray_map(cur_xr_ds, var_names=[variable_names[0]],
         #                                  timesteps=[0], title='Original Data', file_name_prefix='Original_{file_text}', timevar_name='time')
         # viz_obj.plot_3d_data_xarray_map(cropped_xr_ds, var_names=variable_names, timesteps=[0, 1], title='Cropped Data',
@@ -63,7 +63,7 @@ def process_files(user_config, all_path_names, all_file_names, all_dates, all_fi
             if not (os.path.exists(output_folder_final)):
                 os.makedirs(output_folder_final)
             # Subsample the data
-            print(F"\tSubsampling...")
+            # print(F"\tSubsampling...")
 
             try:
                 subsampled_xr_ds = subsampleData(cropped_xr_ds, variable_names, output_size['rows'], output_size['cols'])
@@ -71,7 +71,7 @@ def process_files(user_config, all_path_names, all_file_names, all_dates, all_fi
                 print(F"ERROR!!!!! Failed to subsample file {all_path_names[file_idx]}, output size: {output_size}: {e}")
                 continue
             # viz_obj.xr_summary(subsampled_xr_ds)
-            print("\tDone!")
+            # print("\tDone!")
 
             # For debugging
             # print("\tVisualizing subsampled results...")
@@ -79,7 +79,7 @@ def process_files(user_config, all_path_names, all_file_names, all_dates, all_fi
             # viz_obj.plot_3d_data_xarray_map(subsampled_xr_ds, var_names=variable_names, timesteps=[0,1], title='Subsampled Data',
             #                                 file_name_prefix=F"Subsampled_{file_text}", timevar_name='newtime')
 
-            print(f"\tFlattening variables and saving as csv {join(output_folder_final, all_dates[file_idx].strftime(constants.date_format.value))}")
+            # print(f"\tFlattening variables and saving as csv {join(output_folder_final, all_dates[file_idx].strftime(constants.date_format.value))}")
             # Obtain time strings for current file
             # Save variables as a single CSV file
 
@@ -120,7 +120,7 @@ if __name__== '__main__':
     input_folder_old = user_config[PreprocParams.input_folder_old]
 
     # The max range is from 1980 to present
-    start_year = 1980
+    start_year = 2010
     end_year = 2023
 
     # Run this process in parallel splitting separating by years

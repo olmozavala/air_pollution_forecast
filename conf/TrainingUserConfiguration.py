@@ -82,7 +82,7 @@ def getTrainingParams():
         TrainingParams.evaluation_metrics: [metrics.mean_squared_error],  # Metrics to show in tensor flow in the training
         TrainingParams.loss_function: losses.mean_squared_error,  # Loss function to use for the learning
         # TrainingParams.loss_function: metrics.mean_squared_error,  # Loss function to use for the learning
-        TrainingParams.optimizer: SGD(lr=.001),  # Default values lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=None,
+        TrainingParams.optimizer: SGD(learning_rate=.001),  # Default values learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=None,
         TrainingParams.batch_size: 1000,
         TrainingParams.epochs: 5000,
         TrainingParams.config_name: _run_name,

@@ -1,15 +1,17 @@
+# %%
 import sys
 sys.path.append('./eoas_pyutils')
 
 from ai_common.constants.AI_params import NormParams, TrainingParams, ModelParams
 import ai_common.training.trainingutils as utilsNN
 from ai_common.models.modelSelector import select_1d_model
+from conf.MakeWRF_and_DB_CSV_UserConfiguration import getPreprocWRFParams
 
 from viz_utils.eoa_viz import EOAImageVisualizer
 from io_utils.io_common import create_folder
 from conf.localConstants import constants
 from conf.TrainingUserConfiguration import getTrainingParams
-from conf.params import LocalTrainingParams
+from conf.params import LocalTrainingParams, PreprocParams
 
 from datetime import date, datetime, timedelta
 import tensorflow as tf
@@ -23,220 +25,201 @@ import matplotlib.pyplot as plt
 import os
 import time
 
-# tf.config.experimental.VirtualDeviceConfiguration(memory_limit=12288)
-
+# %%
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
+config = getTrainingParams()
+stations = config[LocalTrainingParams.stations]
+pollutants = config[LocalTrainingParams.pollutants]
+start_year = 2010
+end_year = 2017
+validation_year = 2017
+hours_before = 8 # How many hours of pollution data are we adding as input to the model (current - hours_before)
+cur_pollutant = 'otres'
 
-def readData(config, cur_pollutant, start_year, end_year):
+input_folder = config[TrainingParams.input_folder]
+output_folder = config[TrainingParams.output_folder]
+
+output_folder = join(output_folder,F"MultipleStations_MultiplePollutants_{start_year}_{end_year}")
+
+val_perc = config[TrainingParams.validation_percentage]
+test_perc = config[TrainingParams.test_percentage]
+eval_metrics = config[TrainingParams.evaluation_metrics]
+loss_func = config[TrainingParams.loss_function]
+batch_size = config[TrainingParams.batch_size]
+epochs = config[TrainingParams.epochs]
+model_name_user = config[TrainingParams.config_name]
+optimizer = config[TrainingParams.optimizer]
+forecasted_hours = config[LocalTrainingParams.forecasted_hours]
+norm_type = config[TrainingParams.normalization_type]
+
+split_info_folder = join(output_folder, 'Splits')
+parameters_folder = join(output_folder, 'Parameters')
+weights_folder = join(output_folder, 'models')
+logs_folder = join(output_folder, 'logs')
+imgs_folder= join(output_folder, 'imgs')
+create_folder(split_info_folder)
+create_folder(parameters_folder)
+create_folder(weights_folder)
+create_folder(logs_folder)
+
+# %% Reading the data
+input_folder = config[TrainingParams.input_folder]
+# -------- Reading all the years in a single data frame (all stations)
+for c_year in range(start_year, end_year+1):
+    db_file_name = join(input_folder, F"{c_year}_AllStations.csv") # Just for testing
+    print(F"============ Reading data for: {c_year}: {db_file_name}")
+    if c_year == start_year:
+        data = pd.read_csv(db_file_name, index_col=0)
+    else:
+        data = pd.concat([data, pd.read_csv(db_file_name, index_col=0)])
+print("Done!")
+
+# %% -------- 
+config[ModelParams.INPUT_SIZE] = len(data.columns)
+print(F'Data shape: {data.shape} Data axes {data.axes}')
+print("Done!")
+
+datetimes_str = data.index.values
+datetimes = np.array([datetime.strptime(x, constants.datetime_format.value) for x in datetimes_str])
+
+# %% -------- Normalizing data
+print("Normalizing data....")
+if norm_type == NormParams.min_max:
+    scaler = preprocessing.MinMaxScaler()
+if norm_type == NormParams.mean_zero:
+    scaler = preprocessing.StandardScaler()
+
+scaler = scaler.fit(data)
+data_norm_np = scaler.transform(data)
+data_norm_df = DataFrame(data_norm_np, columns=data.columns, index=data.index)
+print(F'Done!')
+
+# %% Filtering only dates where there is data "forecasted hours after" (24 hrs after)
+print(F"Building X and Y ....")
+hours_before = 3 # How many hours of pollution data are we adding as input to the model (current - hours_before)
+
+# For X we need to remove all the columns of the stations and the last hours
+myregex = f"cont_.*"
+contaminant_columns = data_norm_df.filter(regex=myregex).columns
+# This dataframe contains all the columns of the contaminants for all stations 
+
+# Adding the previous hours of the pollutants as extra columns
+print(F'{data_norm_df.shape}')
+X_df = data_norm_df.copy()
+for c_hour in range(1, hours_before+1):
+    for c_column in contaminant_columns:
+        X_df[f'minus_{c_hour:02d}_{c_column}'] = data_norm_df[c_column].shift(-c_hour)
+
+# Adding the forecasted hours of the pollutants as extra columns (specific contaminant)
+myregex = f"cont_{cur_pollutant}.*"
+single_cont_columns = data_norm_df.filter(regex=myregex).columns
+Y_df = data_norm_df.loc[:, data_norm_df.columns.isin(single_cont_columns)].copy()
+for c_hour in range(1, forecasted_hours+1):
+    for c_column in single_cont_columns:
+        Y_df[f'plus_{c_hour:02d}_{c_column}'] = Y_df[c_column].shift(c_hour)
+
+X_df = data_norm_df.iloc[hours_before:,:]
+Y_df = Y_df.iloc[hours_before:,:]
+print("Done!")
+
+# %%
+print(F'Original {data_norm_df.shape}')
+print(F'X {X_df.shape}, Memory usage: {X_df.memory_usage().sum()/1024**2:02f} MB')
+print(F'Y {Y_df.shape}, Memory usage: {Y_df.memory_usage().sum()/1024**2:02f} MB')
+
+#%% Split the training data by year
+print("Splitting training and validation data by year....")
+train_idxs = X_df.index <= F"{validation_year}-01-01 00:00:00"
+val_idxs = X_df.index > F"{validation_year}-01-01 00:00:00"
+
+X_df_train = X_df[train_idxs]
+Y_df_train = Y_df[train_idxs]
+X_df_val = X_df[val_idxs]
+Y_df_val = Y_df[val_idxs]
+
+print(F'X train {X_df_train.shape}, Memory usage: {X_df_train.memory_usage().sum()/1024**2:02f} MB')
+print(F'Y train {Y_df_train.shape}, Memory usage: {Y_df_train.memory_usage().sum()/1024**2:02f} MB')
+print(F'X val {X_df_val.shape}, Memory usage: {X_df_val.memory_usage().sum()/1024**2:02f} MB')
+print(F'Y val {Y_df_val.shape}, Memory usage: {Y_df_val.memory_usage().sum()/1024**2:02f} MB')
+# %%
+
+# Here we remove the datetime indexes so we need to consider that 
+X_df_train.reset_index(drop=True, inplace=True)
+Y_df_train.reset_index(drop=True, inplace=True)
+X_df_val.reset_index(drop=True, inplace=True)
+Y_df_val.reset_index(drop=True, inplace=True)
+
+print("Done!")
+
+# %% -------- Bootstrapping the data
+def apply_bootstrap(X_df, Y_df, contaminant, station, boostrap_threshold, forecasted_hours, boostrap_factor=1):
     '''
-    Reads all the years for the selected pollutant for all the stations
-    :param config:
-    :param cur_pollutant:
-    :param start_year:
-    :param end_year:
-    :param all_stations:
-    :return:
+    This function will boostrap the data based on the threshold and the forecasted hours
     '''
-    input_folder = config[TrainingParams.input_folder]
-    # -------- Reading all the years in a single data frame (all stations)
-    for c_year in range(start_year, end_year+1):
-        db_file_name = join(input_folder, F"{c_year}_{cur_pollutant}_AllStations.csv") # Just for testing
-        print(F"============ Reading data for: {cur_pollutant}: {db_file_name}")
-        if c_year == start_year:
-            data = pd.read_csv(db_file_name, index_col=0)
-        else:
-            data = pd.concat([data, pd.read_csv(db_file_name, index_col=0)])
+    bootstrap_column = f"cont_{contaminant}_{station}"
+    print("Bootstrapping the data...")
+    bootstrap_idx = X_df.loc[:,bootstrap_column] > boostrap_threshold
+    # Searching all the index where X or Y is above the threshold
+    for i in range(1, forecasted_hours+1):
+        # print(bootstrap_idx.sum())
+        bootstrap_idx = bootstrap_idx | (Y_df.loc[:,f"plus_{i:02d}_{bootstrap_column}"] > boostrap_threshold)
 
-    return data
+    X_df = pd.concat([X_df, *[X_df[bootstrap_idx] for i in range(boostrap_factor)]])
+    Y_df = pd.concat([Y_df, *[Y_df[bootstrap_idx] for i in range(boostrap_factor)]])
 
-def trainModel(config, cur_pollutant, cur_station, data, all_stations):
-    """Trying to separate things so that tf 'cleans' the memory """
+    return X_df, Y_df
 
-    input_folder = config[TrainingParams.input_folder]
-    output_folder = config[TrainingParams.output_folder]
-    #
-    output_folder = join(output_folder,F"{cur_pollutant}_{cur_station}")
+bootstrap = True
+boostrap_factor = 3  # Number of times to repeat the bootstrap
+boostrap_threshold = 2.9
+if bootstrap:
+    # -------- Bootstrapping the data
+    station = "MER"
+    print(F'X train {X_df_train.shape}, Memory usage: {X_df_train.memory_usage().sum()/1024**2:02f} MB')
+    print(F'Y train {Y_df_train.shape}, Memory usage: {Y_df_train.memory_usage().sum()/1024**2:02f} MB')
+    X_df_train, Y_df_train = apply_bootstrap(X_df_train, Y_df_train, cur_pollutant, station, boostrap_threshold, forecasted_hours, boostrap_factor)
+    print(F'X train bootstrapped {X_df_train.shape}, Memory usage: {X_df_train.memory_usage().sum()/1024**2:02f} MB')
+    print(F'Y train bootstrapped {Y_df_train.shape}, Memory usage: {Y_df_train.memory_usage().sum()/1024**2:02f} MB')
+    print(F'X val {X_df_val.shape}, Memory usage: {X_df_val.memory_usage().sum()/1024**2:02f} MB')
+    print(F'Y val {Y_df_val.shape}, Memory usage: {Y_df_val.memory_usage().sum()/1024**2:02f} MB')
 
-    val_perc = config[TrainingParams.validation_percentage]
-    test_perc = config[TrainingParams.test_percentage]
-    eval_metrics = config[TrainingParams.evaluation_metrics]
-    loss_func = config[TrainingParams.loss_function]
-    batch_size = config[TrainingParams.batch_size]
-    epochs = config[TrainingParams.epochs]
-    model_name_user = config[TrainingParams.config_name]
-    optimizer = config[TrainingParams.optimizer]
-    forecasted_hours = config[LocalTrainingParams.forecasted_hours]
-    norm_type = config[TrainingParams.normalization_type]
+# %% 
+print(f"Train examples: {X_df_train.shape[0]}")
+print(f"Validation examples {X_df_val.shape[0]}")
 
-    split_info_folder = join(output_folder, 'Splits')
-    parameters_folder = join(output_folder, 'Parameters')
-    weights_folder = join(output_folder, 'models')
-    logs_folder = join(output_folder, 'logs')
-    imgs_folder= join(output_folder, 'imgs')
-    create_folder(split_info_folder)
-    create_folder(parameters_folder)
-    create_folder(weights_folder)
-    create_folder(logs_folder)
+print("Selecting and generating the model....")
+now = datetime.utcnow().strftime("%Y_%m_%d_%H_%M")
+model_name = F'{model_name_user}_{cur_pollutant}_{now}'
 
-    viz_obj = EOAImageVisualizer(output_folder=imgs_folder, disp_images=False)
+# print(F"Norm params: {scaler.get_params()}")
+# file_name_normparams = join(parameters_folder, F'{model_name}.csv')
+# utilsNN.save_norm_params(file_name_normparams, norm_type, scaler)
 
-    # -------- Removing not used stations
-    remove_columns = [x for x in all_stations if x.find(cur_station) == -1]
-    data = data.drop(columns=remove_columns)
-    # -------- Remove nans
-    data = data.dropna()
+# ******************* Selecting the model **********************
+config[ModelParams.INPUT_SIZE] = X_df_train.shape[1]
+config[ModelParams.NUMBER_OF_OUTPUT_CLASSES] = Y_df_train.shape[1]
 
-    config[ModelParams.INPUT_SIZE] = len(data.columns)
-    print(F'Data shape: {data.shape} Data axes {data.axes}')
-    print("Done!")
+model = select_1d_model(config)
+print("Done!")
 
-    datetimes_str = data.index.values
-    datetimes = np.array([datetime.strptime(x, constants.datetime_format.value) for x in datetimes_str])
 
-    print("Normalizing data....")
-    if norm_type == NormParams.min_max:
-        scaler = preprocessing.MinMaxScaler()
-    if norm_type == NormParams.mean_zero:
-        scaler = preprocessing.StandardScaler()
+# %% 
+print("Getting callbacks ...")
 
-    scaler = scaler.fit(data)
-    data_norm_np = scaler.transform(data)
-    data_norm_df = DataFrame(data_norm_np, columns=data.columns, index=data.index)
-    print(F'Done!')
+all_callbacks = utilsNN.get_all_callbacks(model_name=model_name,
+                                                                    early_stopping_func=F'val_{eval_metrics[0].__name__}',
+                                                                    weights_folder=weights_folder,
+                                                                    logs_folder=logs_folder)
 
-    # Filtering only dates where there is data "forecasted hours after" (24 hrs after)
-    print(F"Building X and Y ....")
-    accepted_times_idx = []
-    y_times_idx = []
-    t = time.time()
-    for i, c_datetime in enumerate(datetimes):
-        forecasted_datetime = (c_datetime + timedelta(hours=forecasted_hours))
-        if forecasted_datetime in datetimes[i:i+forecasted_hours*2]:
-            accepted_times_idx.append(i)
-            y_times_idx.append(np.argwhere(forecasted_datetime == datetimes)[0][0])
+print("Compiling model ...")
+model.compile(loss=loss_func, optimizer=optimizer, metrics=eval_metrics)
 
-    print(F"Done! Time: {time.time() - t} seconds")
+print("Training ...")
 
-    X_df = data_norm_df.loc[datetimes_str[accepted_times_idx]]
-    Y_df = data_norm_df.loc[datetimes_str[y_times_idx]][cur_station]
-
-    X = X_df.values
-    Y = Y_df.values
-
-    bootstrap = True
-    bootstrap_perc = 0.8
-    boostrap_factor = 2  # Number of times to repeat the bootstrap
-    if bootstrap:
-        # -------- Bootstrapping the data
-        print("Bootstrapping the data...")
-        percentiles = X_df[cur_station].quantile([bootstrap_perc])  # Obtain the percentile
-        idxs_x = X[:,-1] > percentiles[bootstrap_perc]  # Obtain the indexes of the percentile for current time
-        idxs_y = Y > percentiles[bootstrap_perc]  # Obtain the indexes of the percentile for the forecasted time
-        idxs = idxs_y | idxs_x  # Merge both cases (we boostrap if the current time or the forecasted time are in the percentile)
-        X_temp = X.copy()
-        Y_temp = Y.copy()
-        for i in range(boostrap_factor):
-            X = np.concatenate((X, X_temp[idxs]))
-            Y = np.concatenate((Y, Y_temp[idxs]))
-
-    print("Done!")
-
-    print(F'X shape: {X.shape} Y shape: {Y.shape}')
-
-    tot_examples = X.shape[0]
-    rows_to_read = np.arange(tot_examples)
-
-    # ================ Split definition =================
-    [train_ids, val_ids, test_ids] = utilsNN.split_train_validation_and_test(tot_examples,
-                                                                             val_percentage=val_perc,
-                                                                             test_percentage=test_perc,
-                                                                             shuffle_ids=True)
-
-    print("Train examples (total:{}) :{}".format(len(train_ids), rows_to_read[train_ids]))
-    print("Validation examples (total:{}) :{}:".format(len(val_ids), rows_to_read[val_ids]))
-    print("Test examples (total:{}) :{}".format(len(test_ids), rows_to_read[test_ids]))
-
-    print("Selecting and generating the model....")
-    now = datetime.utcnow().strftime("%Y_%m_%d_%H_%M")
-    model_name = F'{model_name_user}_{cur_pollutant}_{cur_station}_{now}'
-
-    # ******************* Selecting the model **********************
-    model = select_1d_model(config)
-    # plot_model(model, to_file=join(output_folder, F'{model_name}.png'), show_shapes=True)
-
-    print("Saving split information...")
-
-    file_name_splits = join(split_info_folder, F'{model_name}.csv')
-    info_splits = DataFrame({F'Train({len(train_ids)})': train_ids})
-    info_splits[F'Validation({len(val_ids)})'] = 0
-    info_splits[F'Validation({len(val_ids)})'][0:len(val_ids)] = val_ids
-    info_splits[F'Test({len(test_ids)})'] = 0
-    info_splits[F'Test({len(test_ids)})'][0:len(test_ids)] = test_ids
-    info_splits.to_csv(file_name_splits, index=None)
-
-    print(F"Norm params: {scaler.get_params()}")
-    file_name_normparams = join(parameters_folder, F'{model_name}.csv')
-    utilsNN.save_norm_params(file_name_normparams, norm_type, scaler)
-    info_splits.to_csv(file_name_splits, index=None)
-
-    print("Getting callbacks ...")
-
-    all_callbacks = utilsNN.get_all_callbacks(model_name=model_name,
-                                                                       early_stopping_func=F'val_{eval_metrics[0].__name__}',
-                                                                       weights_folder=weights_folder,
-                                                                       logs_folder=logs_folder)
-
-    print("Compiling model ...")
-    model.compile(loss=loss_func, optimizer=optimizer, metrics=eval_metrics)
-
-    print("Training ...")
-    # This part should be somehow separated, it will change for every project
-    x_train = X[train_ids, :]
-    y_train = Y[train_ids]
-    x_val = X[val_ids, :]
-    y_val = Y[val_ids]
-    x_test = X[test_ids, :]
-    y_test = Y[test_ids]
-
-    # ------------------- Plotting some intermediate results
-    size = 24 * 10 # 10 days of data
-    start = np.random.randint(0, len(data) - size)
-    end = start + size
-    plt.figure(figsize=[64, 8])
-    x_plot = range(len(X_df.iloc[start:end].index.values))
-    y_plot = X_df.iloc[start:end][cur_station].values
-    yy_plot = Y_df.iloc[start:end].values
-
-    fig, ax = plt.subplots(1,1,figsize=(10,4))
-    ax.plot(x_plot, y_plot, color='r', label='Current')
-    ax.plot(x_plot, yy_plot, color='b',  label='Desired')
-    ax.set_title = F"{cur_pollutant}_{cur_station}"
-    plt.legend()
-    plt.show()
-    # ------------------- Done Plotting some intermediate results
-
-    model.fit(x_train, y_train,
-                        batch_size=batch_size,
-                        epochs=epochs,
-                        validation_data=(x_val, y_val),
-                        shuffle=True,
-                        callbacks=all_callbacks)
-
-if __name__ == '__main__':
-    config = getTrainingParams()
-    stations = config[LocalTrainingParams.stations]
-    pollutants = config[LocalTrainingParams.pollutants]
-    start_year = 2010
-    end_year = 2019
-    # It is generating one network for each pollutant for each station
-    # Iterate over all pollutants
-    for cur_pollutant in pollutants:
-        # Read the data for all stations for current pollutant
-        data = readData(config, cur_pollutant, start_year, end_year)
-        # Iterate over all stations
-        for cur_station in stations:
-            try:
-                trainModel(config, cur_pollutant, cur_station, data, stations)
-            except Exception as e:
-                print(F"ERROR! It has failed for:{cur_pollutant} -- {cur_station}: {e}")
+model.fit(X_df_train.values, Y_df_train.values,
+                    batch_size=batch_size,
+                    epochs=epochs,
+                    validation_data=(X_df_val.values, Y_df_val.values),
+                    shuffle=True,
+                    callbacks=all_callbacks)

@@ -26,7 +26,8 @@ def getPreprocWRFParams():
                                                  {'rows': 8, 'cols': 8},
                                                  {'rows': 16, 'cols': 16}],
         # How to crop the data [minlat, maxlat, minlon, maxlon]
-        PreprocParams.bbox: [19.05,20,-99.46, -98.7],
+        # PreprocParams.bbox: [19.05,20,-99.46, -98.7],
+        PreprocParams.bbox: [18.75, 20,-99.75, -98.5],
         PreprocParams.times: range(72),  # What is this?
         }
 
