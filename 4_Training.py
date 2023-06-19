@@ -58,10 +58,12 @@ parameters_folder = join(output_folder, 'Parameters')
 weights_folder = join(output_folder, 'models')
 logs_folder = join(output_folder, 'logs')
 imgs_folder= join(output_folder, 'imgs')
+norm_folder = join(output_folder, 'norm')
 create_folder(split_info_folder)
 create_folder(parameters_folder)
 create_folder(weights_folder)
 create_folder(logs_folder)
+create_folder(norm_folder)
 
 # %% Reading the data
 input_folder = config[TrainingParams.input_folder]
@@ -203,8 +205,20 @@ config[ModelParams.NUMBER_OF_OUTPUT_CLASSES] = Y_df_train.shape[1]
 model = select_1d_model(config)
 print("Done!")
 
+# file_name_splits = join(split_info_folder, F'{model_name}.csv')
+# info_splits = DataFrame({F'Train({len(train_ids)})': train_ids})
+# info_splits[F'Validation({len(val_ids)})'] = 0
+# info_splits[F'Validation({len(val_ids)})'][0:len(val_ids)] = val_ids
+# info_splits[F'Test({len(test_ids)})'] = 0
+# info_splits[F'Test({len(test_ids)})'][0:len(test_ids)] = test_ids
+# info_splits.to_csv(file_name_splits, index=None)
 
-# %% 
+# print(F"Norm params: {scaler.get_params()}")
+# file_name_normparams = join(parameters_folder, F'{model_name}.csv')
+# scaler.path_file = join(norm_folder,F"{model_name}_scaler.pkl")  #path_file_name to save the pickled scaler
+# utilsNN.save_norm_params(file_name_normparams, norm_type, scaler)
+# info_splits.to_csv(file_name_splits, index=None)
+
 print("Getting callbacks ...")
 
 all_callbacks = utilsNN.get_all_callbacks(model_name=model_name,
