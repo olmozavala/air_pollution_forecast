@@ -74,10 +74,12 @@ def trainModel(config, cur_pollutant, cur_station, data, all_stations):
     weights_folder = join(output_folder, 'models')
     logs_folder = join(output_folder, 'logs')
     imgs_folder= join(output_folder, 'imgs')
+    norm_folder = join(output_folder, 'norm')
     create_folder(split_info_folder)
     create_folder(parameters_folder)
     create_folder(weights_folder)
     create_folder(logs_folder)
+    create_folder(norm_folder)
 
     viz_obj = EOAImageVisualizer(output_folder=imgs_folder, disp_images=False)
 
@@ -177,6 +179,7 @@ def trainModel(config, cur_pollutant, cur_station, data, all_stations):
 
     print(F"Norm params: {scaler.get_params()}")
     file_name_normparams = join(parameters_folder, F'{model_name}.csv')
+    scaler.path_file = join(norm_folder,F"{model_name}_scaler.pkl")  #path_file_name to save the pickled scaler
     utilsNN.save_norm_params(file_name_normparams, norm_type, scaler)
     info_splits.to_csv(file_name_splits, index=None)
 
