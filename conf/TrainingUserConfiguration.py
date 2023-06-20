@@ -45,8 +45,8 @@ def append_model_params(cur_config):
         ModelParams.DROPOUT: True,
         ModelParams.BATCH_NORMALIZATION: True,
         # ModelParams.CELLS_PER_HIDDEN_LAYER: [300, 300, 300],
-        # ModelParams.CELLS_PER_HIDDEN_LAYER: [300, 300, 200, 100, 100, 100, 100, 100, 100],
-        ModelParams.CELLS_PER_HIDDEN_LAYER: [100, 100, 100],
+        ModelParams.CELLS_PER_HIDDEN_LAYER: [300, 300, 300, 300, 300, 300, 300, 300, 300],
+        # ModelParams.CELLS_PER_HIDDEN_LAYER: [100, 100, 100],
         ModelParams.NUMBER_OF_OUTPUT_CLASSES: 1,
         ModelParams.ACTIVATION_HIDDEN_LAYERS: 'relu',
         ModelParams.ACTIVATION_OUTPUT_LAYERS: None

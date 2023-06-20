@@ -1,3 +1,4 @@
+
 # %%
 import sys
 sys.path.append('./eoas_pyutils')
@@ -14,7 +15,6 @@ from conf.TrainingUserConfiguration import getTrainingParams
 from conf.params import LocalTrainingParams, PreprocParams
 
 from datetime import date, datetime, timedelta
-import tensorflow as tf
 # from tensorflow.keras.utils import plot_model
 import numpy as np
 import pandas as pd
@@ -25,6 +25,17 @@ import matplotlib.pyplot as plt
 import os
 import time
 
+# External libraries
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import torchvision
+import torchvision.transforms as transforms
+import matplotlib.pyplot as plt
+from torch.utils.data import Dataset, DataLoader
+from torch.nn.parallel import DistributedDataParallel
+
+
 # %%
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
@@ -33,7 +44,7 @@ stations = config[LocalTrainingParams.stations]
 pollutants = config[LocalTrainingParams.pollutants]
 start_year = 2010
 end_year = 2013
-validation_year = 2017
+validation_year = 2013
 hours_before = 8 # How many hours of pollution data are we adding as input to the model (current - hours_before)
 cur_pollutant = 'otres'
 
@@ -178,8 +189,6 @@ boostrap_threshold = 2.9
 if bootstrap:
     # -------- Bootstrapping the data
     station = "MER"
-    # Se utiliza esta estacion para decidir que indices son los que se van a usar para el bootstrapping.
-    # Only the indexes for this station that are above the threshold will be used for bootstrapping
     print(F'X train {X_df_train.shape}, Memory usage: {X_df_train.memory_usage().sum()/1024**2:02f} MB')
     print(F'Y train {Y_df_train.shape}, Memory usage: {Y_df_train.memory_usage().sum()/1024**2:02f} MB')
     X_df_train, Y_df_train = apply_bootstrap(X_df_train, Y_df_train, cur_pollutant, station, boostrap_threshold, forecasted_hours, boostrap_factor)
@@ -204,33 +213,33 @@ model_name = F'{model_name_user}_{cur_pollutant}_{now}'
 config[ModelParams.INPUT_SIZE] = X_df_train.shape[1]
 config[ModelParams.NUMBER_OF_OUTPUT_CLASSES] = Y_df_train.shape[1]
 
-model = select_1d_model(config)
-print("Done!")
 
-#%% 
-# Replace all the nan values with zeros
-X_df_train.fillna(0, inplace=True)
-X_df_val.fillna(0, inplace=True)
-Y_df_train.fillna(0, inplace=True)
-Y_df_val.fillna(0, inplace=True)
+# file_name_splits = join(split_info_folder, F'{model_name}.csv')
+# info_splits = DataFrame({F'Train({len(train_ids)})': train_ids})
+# info_splits[F'Validation({len(val_ids)})'] = 0
+# info_splits[F'Validation({len(val_ids)})'][0:len(val_ids)] = val_ids
+# info_splits[F'Test({len(test_ids)})'] = 0
+# info_splits[F'Test({len(test_ids)})'][0:len(test_ids)] = test_ids
+# info_splits.to_csv(file_name_splits, index=None)
 
-#print("Getting callbacks ...")
-all_callbacks = utilsNN.get_all_callbacks(model_name=model_name,
-                                           early_stopping_func=F'val_{eval_metrics[0].__name__}',
-                                             weights_folder=weights_folder,
-                                             patience=200,
-                                               logs_folder=logs_folder)
+# print(F"Norm params: {scaler.get_params()}")
+# file_name_normparams = join(parameters_folder, F'{model_name}.csv')
+# scaler.path_file = join(norm_folder,F"{model_name}_scaler.pkl")  #path_file_name to save the pickled scaler
+# utilsNN.save_norm_params(file_name_normparams, norm_type, scaler)
+# info_splits.to_csv(file_name_splits, index=None)
 
-print("Compiling model ...")
-model.compile(loss=loss_func, optimizer=optimizer, metrics=eval_metrics)
-model.summary()
+#%% Initialize the model, loss, and optimizer
+model = select_model(Models.UNET_2D, num_levels=4, cnn_per_level=2, input_channels=1,
+                     output_channels=1, start_filters=32, kernel_size=3).to(device)
 
-#%% 
+# TODO how to parallelize the training in multiple GPUs
+# n_gpus = torch.cuda.device_count()
+# torch.distributed.init_process_group( backend='nccl', world_size=N, init_method='...')
+# model = DistributedDataParallel(model, device_ids=[i], output_device=i)
 
-print("Training ...")
-model.fit(X_df_train.values, Y_df_train.values,
-                    batch_size=batch_size,
-                    epochs=epochs,
-                    validation_data=(X_df_val.values, Y_df_val.values),
-                    shuffle=True,
-                    callbacks=all_callbacks)
+# criterion = nn.MSELoss()
+loss_func = dice_loss
+optimizer = optim.Adam(model.parameters(), lr=0.001)
+
+num_epochs = 1000
+model = train_model(model, optimizer, loss_func, train_loader, val_loader, num_epochs, device, output_folder)
