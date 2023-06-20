@@ -1,6 +1,7 @@
 # %%
 import sys
-sys.path.append('./eoas_pyutils')
+# sys.path.append('./eoas_pyutils')  # Doesn't work when using a conda env outside home
+sys.path.append('/home/olmozavala/air_pollution_forecast/eoas_pyutils')
 
 from ai_common.constants.AI_params import NormParams, TrainingParams, ModelParams
 import ai_common.training.trainingutils as utilsNN
@@ -33,7 +34,7 @@ stations = config[LocalTrainingParams.stations]
 pollutants = config[LocalTrainingParams.pollutants]
 start_year = 2010
 end_year = 2013
-validation_year = 2017
+validation_year = 2013
 hours_before = 8 # How many hours of pollution data are we adding as input to the model (current - hours_before)
 cur_pollutant = 'otres'
 
@@ -111,7 +112,7 @@ print(F'{data_norm_df.shape}')
 X_df = data_norm_df.copy()
 for c_hour in range(1, hours_before+1):
     for c_column in contaminant_columns:
-        X_df[f'minus_{c_hour:02d}_{c_column}'] = data_norm_df[c_column].shift(-c_hour)
+        X_df[f'minus_{c_hour:02d}_{c_column}'] = data_norm_df[c_column].shift(c_hour)
 
 # Adding the forecasted hours of the pollutants as extra columns (specific contaminant)
 myregex = f"cont_{cur_pollutant}.*"
@@ -119,7 +120,7 @@ single_cont_columns = data_norm_df.filter(regex=myregex).columns
 Y_df = data_norm_df.loc[:, data_norm_df.columns.isin(single_cont_columns)].copy()
 for c_hour in range(1, forecasted_hours+1):
     for c_column in single_cont_columns:
-        Y_df[f'plus_{c_hour:02d}_{c_column}'] = Y_df[c_column].shift(c_hour)
+        Y_df[f'plus_{c_hour:02d}_{c_column}'] = Y_df[c_column].shift(-c_hour)
 
 X_df = data_norm_df.iloc[hours_before:,:]
 Y_df = Y_df.iloc[hours_before:,:]
@@ -144,8 +145,45 @@ print(F'X train {X_df_train.shape}, Memory usage: {X_df_train.memory_usage().sum
 print(F'Y train {Y_df_train.shape}, Memory usage: {Y_df_train.memory_usage().sum()/1024**2:02f} MB')
 print(F'X val {X_df_val.shape}, Memory usage: {X_df_val.memory_usage().sum()/1024**2:02f} MB')
 print(F'Y val {Y_df_val.shape}, Memory usage: {Y_df_val.memory_usage().sum()/1024**2:02f} MB')
-# %%
+# %% Visualize input and outputs
+print("Visualizing input and outputs...")
+# -------- Visualizing the input and output
+def addColumn(col_name, start_idx, end_idx, df, ax, size=20):
+    ax.scatter(df.index[start_idx:end_idx], 
+               df[col_name][start_idx:end_idx], 
+               label=col_name, s=size)
+    # Plot a vertical line at the middle of the plot
+fig, ax = plt.subplots(1,3, figsize=(20,10))
+station = 'MER'
+start_idx = 0
+end_idx = start_idx + 24
+ax[0].axvline(int((start_idx+end_idx)/2), color='r', linestyle='--', linewidth=1, zorder=1)
+addColumn(f"cont_{cur_pollutant}_{station}", start_idx, end_idx, X_df, ax[0])
+# Add the next 24 hours that are available for the prediction
+# for c_hour in range(1, forecasted_hours+1):
+for c_hour in range(1, 3):
+    addColumn(f"plus_{c_hour:02d}_cont_{cur_pollutant}_{station}", 
+              start_idx, end_idx, Y_df, ax[0], size=10)
 
+# Add some of the time columns
+addColumn(f"sin_day", start_idx, end_idx, X_df, ax[1], size=10)
+addColumn(f"cos_day", start_idx, end_idx, X_df, ax[1], size=10)
+addColumn(f"half_sin_day", start_idx, end_idx, X_df, ax[1], size=10)
+
+# Add all columns from the stations to the third axes
+filt_columns = [x for x in X_df.columns if 'cont_' in x]
+for c_column in X_df.columns:
+    addColumn(c_column, start_idx, end_idx, X_df, ax[2], size=10)
+
+# Rotate xaxis for each plot
+for c_ax in ax:
+    c_ax.xaxis.set_tick_params(rotation=-45)
+
+plt.savefig('input.png')
+plt.close()
+
+
+# %% Remove nans
 # Here we remove the datetime indexes so we need to consider that 
 X_df_train.reset_index(drop=True, inplace=True)
 Y_df_train.reset_index(drop=True, inplace=True)
