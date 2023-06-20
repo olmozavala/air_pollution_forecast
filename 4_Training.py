@@ -24,6 +24,7 @@ from os.path import join
 import matplotlib.pyplot as plt
 import os
 import time
+import pickle
 
 # %%
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
@@ -196,9 +197,13 @@ print("Selecting and generating the model....")
 now = datetime.utcnow().strftime("%Y_%m_%d_%H_%M")
 model_name = F'{model_name_user}_{cur_pollutant}_{now}'
 
-# print(F"Norm params: {scaler.get_params()}")
-# file_name_normparams = join(parameters_folder, F'{model_name}.csv')
-# utilsNN.save_norm_params(file_name_normparams, norm_type, scaler)
+
+# ******************* Saving Normalization params, scaler object **********************
+scaler.path_file = join(norm_folder,F"{model_name}_scaler.pkl")  
+with open(scaler.path_file, 'wb') as f: #scaler.path_file must be defined during training.
+    pickle.dump(scaler, f)
+print(f'Scaler object saved to: {scaler.path_file}')
+
 
 # ******************* Selecting the model **********************
 config[ModelParams.INPUT_SIZE] = X_df_train.shape[1]
