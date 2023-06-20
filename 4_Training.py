@@ -32,8 +32,8 @@ config = getTrainingParams()
 stations = config[LocalTrainingParams.stations]
 pollutants = config[LocalTrainingParams.pollutants]
 start_year = 2010
-end_year = 2017
-validation_year = 2017
+end_year = 2013
+validation_year = 2013
 hours_before = 8 # How many hours of pollution data are we adding as input to the model (current - hours_before)
 cur_pollutant = 'otres'
 
@@ -222,9 +222,9 @@ print("Done!")
 print("Getting callbacks ...")
 
 all_callbacks = utilsNN.get_all_callbacks(model_name=model_name,
-                                                                    early_stopping_func=F'val_{eval_metrics[0].__name__}',
-                                                                    weights_folder=weights_folder,
-                                                                    logs_folder=logs_folder)
+                                           early_stopping_func=F'val_{eval_metrics[0].__name__}',
+                                             weights_folder=weights_folder,
+                                               logs_folder=logs_folder)
 
 print("Compiling model ...")
 model.compile(loss=loss_func, optimizer=optimizer, metrics=eval_metrics)
