@@ -1,3 +1,7 @@
+# %%
+import sys
+sys.path.append('/home/olmozavala/air_pollution_forecast/eoas_pyutils')
+
 from conf.MakeWRF_and_DB_CSV_UserConfiguration import getPreprocWRFParams
 from conf.params import PreprocParams
 from proj_preproc.wrf import crop_variables_xr, crop_variables_xr_cca_reanalisis, subsampleData
@@ -7,8 +11,9 @@ from conf.localConstants import wrfFileType
 import os
 from os.path import join
 import xarray as xr
-# from img_viz.eoa_viz import EOAImageVisualizer
+from viz_utils.eoa_viz import EOAImageVisualizer, BackgroundType
 from multiprocessing import Pool
+# %%
 
 from proj_io.inout import read_wrf_files_names, read_wrf_old_files_names, saveFlattenedVariables
 
@@ -20,16 +25,12 @@ def process_files(user_config, all_path_names, all_file_names, all_dates, all_fi
     bbox = user_config[PreprocParams.bbox]
     times = user_config[PreprocParams.times]
 
-    # viz_obj = EOAImageVisualizer(output_folder=output_folder_imgs, disp_images=False)
     # Itereate over each file and preprocess them
     print("Processing new model files...")
     for file_idx in range(len(all_path_names)):
         print(F"================ {all_file_names[file_idx]} ================================ ")
         # Read file as xarray
         cur_xr_ds = xr.open_dataset(all_path_names[file_idx], decode_times=False)
-        # Printing the summary of the data
-        # viz_obj.xr_summary(cur_xr_ds)
-        # print(F"\tCropping...")
         # Crops the desired variable_names
         try:
             if mode == wrfFileType.new:
@@ -47,42 +48,39 @@ def process_files(user_config, all_path_names, all_file_names, all_dates, all_fi
             print(F"ERROR!!!!! Failed to crop file {all_path_names[file_idx]}: {e}")
             continue
 
-        # viz_obj.xr_summary(cropped_xr_ds)
-        # print("\tDone!")
 
-        # For debugging, visualizing results
-        # print("\tVisualizing cropped results...")
-        # file_text = F"{all_file_names[file_idx]}"
-        # viz_obj.plot_3d_data_xarray_map(cur_xr_ds, var_names=[variable_names[0]],
-        #                                  timesteps=[0], title='Original Data', file_name_prefix='Original_{file_text}', timevar_name='time')
-        # viz_obj.plot_3d_data_xarray_map(cropped_xr_ds, var_names=variable_names, timesteps=[0, 1], title='Cropped Data',
-        #                                 file_name_prefix=F'Cropped_{file_text}', timevar_name='newtime')
 
+        # Subsampling the data
         for output_size in output_sizes:
             output_folder_final = F"{output_folder}_{output_size['rows']}_{output_size['cols']}"
             if not (os.path.exists(output_folder_final)):
                 os.makedirs(output_folder_final)
-            # Subsample the data
-            # print(F"\tSubsampling...")
 
             try:
-                subsampled_xr_ds = subsampleData(cropped_xr_ds, variable_names, output_size['rows'], output_size['cols'])
+                subsampled_xr_ds, coarselat, coarselon = subsampleData(cropped_xr_ds, variable_names, output_size['rows'], output_size['cols'])
             except Exception as e:
                 print(F"ERROR!!!!! Failed to subsample file {all_path_names[file_idx]}, output size: {output_size}: {e}")
                 continue
-            # viz_obj.xr_summary(subsampled_xr_ds)
-            # print("\tDone!")
 
-            # For debugging
-            # print("\tVisualizing subsampled results...")
-            # file_text = F"{output_size['rows']}x{output_size['cols']}_{all_file_names[file_idx]}"
-            # viz_obj.plot_3d_data_xarray_map(subsampled_xr_ds, var_names=variable_names, timesteps=[0,1], title='Subsampled Data',
-            #                                 file_name_prefix=F"Subsampled_{file_text}", timevar_name='newtime')
+            # For debugging, visualizing results
+            # print("\tVisualizing cropped results...")
+
+            # time_to_plot = 23
+            # file_text = f"{all_file_names[file_idx].split('_')[3]}_{output_size['rows']}_{output_size['cols']}_{time_to_plot}"
+            # field_to_plot = 'T2'
+            # viz_obj = EOAImageVisualizer(lats=LAT, lons=LON, disp_images=True, output_folder=output_folder_imgs)
+            # viz_obj.plot_3d_data_npdict(cur_xr_ds, var_names=[field_to_plot],
+            #                                 z_levels=[time_to_plot], title='Original Data', file_name_prefix=f'Original_{file_text}')
+            # viz_obj = EOAImageVisualizer(lats=newLAT, lons=newLon, disp_images=True, output_folder=output_folder_imgs)
+            # viz_obj.plot_3d_data_npdict(cropped_xr_ds, var_names=[field_to_plot],
+            #                                 z_levels=[time_to_plot], title='Cropped Data', file_name_prefix=f'Cropped_{file_text}')
+            # viz_obj = EOAImageVisualizer(lats=coarselat, lons=coarselon, disp_images=True, output_folder=output_folder_imgs)
+            # viz_obj.plot_3d_data_npdict(subsampled_xr_ds, var_names=[field_to_plot],
+            #                                 z_levels=[time_to_plot], title='Coarsened Data', file_name_prefix=f'Coarsened_{file_text}')
 
             # print(f"\tFlattening variables and saving as csv {join(output_folder_final, all_dates[file_idx].strftime(constants.date_format.value))}")
             # Obtain time strings for current file
             # Save variables as a single CSV file
-
             try:
                 saveFlattenedVariables(subsampled_xr_ds, variable_names, output_folder_final,
                                        file_name=F"{all_dates[file_idx].strftime(constants.date_format.value)}.csv",
@@ -121,9 +119,9 @@ if __name__== '__main__':
 
     # The max range is from 1980 to present
     start_year = 2010
-    end_year = 2023
+    end_year = 2017
 
     # Run this process in parallel splitting separating by years
-    NUMBER_PROC = 20
+    NUMBER_PROC = 1
     p = Pool(NUMBER_PROC)
     p.map(runParallel, range(start_year, end_year))

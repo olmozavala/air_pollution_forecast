@@ -136,4 +136,4 @@ def subsampleData(xr_ds, variables, num_rows, num_cols):
         #                                   title=F'Shape: {num_rows}x{num_cols}',
         #                                   file_name_prefix='AfterCroppingAndSubsampling')
 
-    return output_xr_ds
+    return output_xr_ds, newlat, newlon

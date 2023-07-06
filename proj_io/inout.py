@@ -102,15 +102,12 @@ def saveFlattenedVariables(xr_ds, variable_names, output_folder, file_name, inde
         cur_var_np = xr_ds[cur_var_name].values
         size_defined = False
         dims = cur_var.shape
+
         # TODO hardcoded order of dimensions
         times = dims[0]
         rows = dims[1]
         cols = dims[2]
 
-        # Hardcoded variables to change the
-        # if cur_var_name in ['RAINC', 'RAINNC']:
-        #     for i in range(times-1):
-        #         cur_var_np[i, :, :] = cur_var_np[i+1, :, :] - cur_var_np[i, :, :]
         var_flat_values = np.array([cur_var_np[i,:,:].flatten() for i in range(times)])
         var_columns = [F"{cur_var_name}_{i}" for i in range(rows*cols)]
         temp_dict = {var_columns[i]: var_flat_values[:,i] for i in range(len(var_columns))}
