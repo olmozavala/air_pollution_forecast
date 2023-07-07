@@ -75,3 +75,28 @@ def deNormalize(data):
     unnormalize_data = data*(_max_value_ozone- _min_value_ozone) + _min_value_ozone
     return unnormalize_data
 
+
+def apply_bootstrap(X_df, Y_df, contaminant, station, boostrap_threshold, forecasted_hours, boostrap_factor=1):
+    '''
+    This function will boostrap the data based on the threshold and the forecasted hours
+    '''
+
+    bootstrap_column = f"cont_{contaminant}_{station}"
+    print("Bootstrapping the data...")
+    # Searching all the index where X or Y is above the threshold
+
+    # Adding index when the current time is above the threshold
+    bootstrap_idx = X_df.loc[:,bootstrap_column] > boostrap_threshold
+
+    # Searching index when any of the forecasted hours is above the threshold
+    y_cols = Y_df.columns.values
+    for i in range(1, forecasted_hours+1):
+        # print(bootstrap_idx.sum())  
+        c_column = f"plus_{i:02d}_{bootstrap_column}"
+        if c_column in y_cols:
+            bootstrap_idx = bootstrap_idx | (Y_df.loc[:, c_column] > boostrap_threshold)
+
+    X_df = pd.concat([X_df, *[X_df[bootstrap_idx] for i in range(boostrap_factor)]])
+    Y_df = pd.concat([Y_df, *[Y_df[bootstrap_idx] for i in range(boostrap_factor)]])
+
+    return X_df, Y_df

@@ -38,7 +38,7 @@ _debug = False
 
 # =================================== TRAINING ===================================
 # ----------------------------- UM -----------------------------------
-_run_name = F'WPrevHours8_MultipleStation_SinglePollutant_WITH_Bootstrap_AllForecastedHoursUpTo2017'  # Name of the model, for training and classification
+_run_name = F'TestOZ'  # Name of the model, for training and classification
 
 def append_model_params(cur_config):
     model_config = {
@@ -79,7 +79,7 @@ def getTrainingParams():
         # TrainingParams.output_folder: F"{join(data_folder, constants.training_output_folder.value)}",
         TrainingParams.output_folder: F"{join(data_folder, 'TrainingTestsOZ')}",
         TrainingParams.validation_percentage: .1,
-        TrainingParams.test_percentage: .1, # If training with 10 years, we test on the last one
+        TrainingParams.test_percentage: 0, # If training with 10 years, we test on the last one
         TrainingParams.evaluation_metrics: [metrics.mean_squared_error],  # Metrics to show in tensor flow in the training
         TrainingParams.loss_function: losses.mean_squared_error,  # Loss function to use for the learning
         # TrainingParams.loss_function: custom_mse,  # Loss function to use for the learning

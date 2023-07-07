@@ -1,5 +1,7 @@
 import calendar
+from matplotlib import pyplot as plt
 import numpy as np
+from os.path import join
 
 MONTHS = [calendar.month_name[x] for x in range(1,13)]
 WEEK_DAYS = list(calendar.day_name)
@@ -122,3 +124,65 @@ def get_error_by_date_by_station(gt_data, nn_data, type="M", metric='rmse'):
 
         return output_data
 
+
+def addColumn(col_name, start_idx, end_idx, df, ax, size=20, scatter=False, line_style='-'):
+    '''
+    Add a column to the plot. It can be plot or scatter
+    '''
+    if scatter:
+        ax.scatter(df.index[start_idx:end_idx], 
+               df[col_name][start_idx:end_idx], 
+               label=col_name, s=size)
+    else:
+        ax.plot(df.index[start_idx:end_idx], 
+               df[col_name][start_idx:end_idx], 
+               lw = size, linestyle=line_style,
+               label=col_name)
+
+
+def plot_input_output_data(X_df, Y_df, cur_station, cur_pollutant, output_folder, model_name):
+    fig, ax = plt.subplots(1,3, figsize=(30,10))
+    station = cur_station
+    times_to_plot = 48
+    start_idx = 104
+    end_idx = start_idx + times_to_plot
+
+    # Plot main pollutant for single station
+    addColumn(f"cont_{cur_pollutant}_{station}", start_idx, end_idx, X_df, ax[0], 
+            size=4, scatter=False)
+
+    # Add the predicted values Y (next 24 hours)
+    # for c_hour in range(forecasted_hours, forecasted_hours+1):
+    # for c_hour in range(forecasted_hours-5, forecasted_hours+1):
+    for c_hour in range(1, 5):
+        addColumn(f"plus_{c_hour:02d}_cont_{cur_pollutant}_{station}", 
+                start_idx, end_idx, Y_df, ax[0], size=10)
+
+    for c_hour in range(1, 5):
+        addColumn(f"minus_{c_hour:02d}_cont_{cur_pollutant}_{station}", 
+                  start_idx, end_idx, X_df, ax[0], size=10, line_style='--')
+
+    # Plot some meteo columns
+    meteo_col = "T2"
+    plot_hr = 0
+    cuadrants = 4
+    tot_cuadrants = int(cuadrants**2 )
+    cols = [f"{meteo_col}_{i}_h{plot_hr}" for i in range(tot_cuadrants)]
+    meteo_data = X_df.loc[start_idx, cols]
+    meteo_img = np.zeros((cuadrants, cuadrants))
+    # Fill the meteo image with the data from the dataframe
+    for i in range(cuadrants):
+        for j in range(cuadrants):
+            meteo_img[i,j] = meteo_data[f"{meteo_col}_{i*cuadrants+j}_h{plot_hr}"]
+
+    ax[2].imshow(meteo_img, cmap='hot', interpolation='nearest')
+
+    ax[0].legend()
+    # Add some of the time columns
+    addColumn(f"sin_day", start_idx, end_idx, X_df, ax[1], size=10)
+    addColumn(f"cos_day", start_idx, end_idx, X_df, ax[1], size=10)
+    addColumn(f"half_sin_day", start_idx, end_idx, X_df, ax[1], size=10)
+
+    plt.show()
+    plt.savefig(join(output_folder, f'{model_name}.png'))
+    plt.close()

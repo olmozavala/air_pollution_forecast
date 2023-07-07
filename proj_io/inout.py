@@ -274,3 +274,80 @@ def read_merged_files(input_folder, start_year, end_year):
     print(F'Data shape: {data.shape} Data axes {data.axes}')
     print("Done!")
     return data
+
+def get_column_names(df):
+    '''
+    Reads all the column nams of the specified dataframe. It separates the names for pollution,
+    meteorological, and time columns
+    '''
+    myregex = f"cont_.*"
+    all_contaminant_columns = df.filter(regex=myregex).columns
+    # print(all_contaminant_columns.values)
+    all_time_colums = df.filter(regex="day|year|week").columns
+    # print(all_time_colums.values)
+    all_meteo_columns = [x for x in df.columns if x not in all_contaminant_columns and x not in all_time_colums]
+    # print(all_meteo_columns)
+    return all_contaminant_columns, all_meteo_columns, all_time_colums
+
+def filter_data(df, filter_type='none', filtered_pollutant='', filtered_station=''):
+    '''
+    This code can filter the dataframe by the specified filter type. 
+    The possible filter_types are: 'none', 'single_pollutant', 'single_pollutant_and_station'
+    '''
+    all_contaminant_columns, all_meteo_columns, all_time_colums = get_column_names(df)
+    if filter_type == 'single_pollutant': # In case we want to use a single pollutant and station
+        # ---------- Here we only keep the columns for the current pollutant all stations
+        keep_cols = [x for x in df.columns if x.startswith(f'cont_{filtered_pollutant}')] + all_time_colums.tolist() + all_meteo_columns
+        print(F"Keeping columns: {len(keep_cols)} original columns: {len(df.columns)}")
+        X_df = df[keep_cols].copy()
+    elif filter_type == 'single_pollutant_and_station': # In case we want to use a single pollutant and station
+        # ------------- Here we only keep the columns for the current station and pollutant
+        keep_cols = [f'cont_{filtered_pollutant}_{filtered_station}'] + all_time_colums.tolist() + all_meteo_columns
+        print(F"Keeping columns: {len(keep_cols)} original columns: {len(df.columns)}")
+        X_df = df[keep_cols].copy()
+    elif filter_type == 'none':
+        X_df = df.copy()
+
+    return X_df
+
+def add_previous_hours(df, hours_before=24):
+    '''
+    This function adds the previous hours of the pollutants as additional columns
+    '''
+    print("\tAdding the previous hours of the pollutants as additional columns...")
+
+    contaminant_columns, _, _= get_column_names(df)
+    print(F"\t\tContaminant columns: {contaminant_columns.values}")
+    for c_hour in range(1, hours_before+1):
+        for c_column in contaminant_columns:
+            df[f'minus_{c_hour:02d}_{c_column}'] = df[c_column].shift(c_hour)
+    print(F'X {df.shape}, Memory usage: {df.memory_usage().sum()/1024**2:02f} MB')
+    print("Done!")
+    return df
+
+def add_forecasted_hours(df, pollutant, forecasted_hours=range(1,25)):
+    '''
+    This function adds the forecasted hours of a single pollutant in a new dataframe
+    forecasted_hours: Array with the hours to forecast
+    '''
+    myregex = f"^cont_{pollutant}.*"
+    single_cont_columns = df.filter(regex=myregex).columns
+    # print(single_cont_columns)
+
+    # Adds the next 24 (forecasted_hours) hours to the prediction
+    Y_df =  pd.DataFrame(index=df.index)
+    for c_hour in forecasted_hours:
+        for c_column in single_cont_columns:
+            Y_df[f'plus_{c_hour:02d}_{c_column}'] = df[c_column].shift(-c_hour)
+
+    print(f"Shape of Y: {Y_df.shape}")
+    print("Done!")
+    return Y_df
+
+def save_columns(df, file_name):
+    '''
+    This function saves the columns of a dataframe to a csv file
+    '''
+    cols = pd.DataFrame(df.columns)
+    cols.to_csv(file_name, index=False)
+    print(f"Done saving file: {file_name}")
