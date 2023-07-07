@@ -17,6 +17,8 @@ from io_utils.io_common import create_folder
 from conf.localConstants import constants
 from conf.TrainingUserConfiguration import getTrainingParams
 from conf.params import LocalTrainingParams, PreprocParams
+from proj_io.inout import read_merged_files
+from proj_preproc.preproc import normalizeData
 
 from datetime import date, datetime, timedelta
 import tensorflow as tf
@@ -34,7 +36,7 @@ import pickle
 
 # %% ========= Set the GPU to use ==================
 # In case we want to save the columns to temporal files for debugging purposes
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 # %%
 def save_columns(X, name):
     cols = pd.DataFrame(X.columns)
@@ -44,9 +46,9 @@ def save_columns(X, name):
 config = getTrainingParams()
 stations = config[LocalTrainingParams.stations]
 pollutants = config[LocalTrainingParams.pollutants]
-start_year = 2014
-end_year = 2017
-validation_year = 2017
+start_year = 2010
+end_year = 2013
+validation_year = 2013
 hours_before = 8 # How many hours of pollution data are we adding as input to the model (current - hours_before)
 cur_pollutant = 'otres'
 cur_station = 'MER'
@@ -81,44 +83,18 @@ create_folder(norm_folder)
 
 # %% Reading the data
 input_folder = config[TrainingParams.input_folder]
-# -------- Reading all the years in a single data frame (all stations)
-for c_year in range(start_year, end_year+1):
-    db_file_name = join(input_folder, F"{c_year}_AllStations.csv") # Just for testing
-    print(F"============ Reading data for: {c_year}: {db_file_name}")
-    if c_year == start_year:
-        data = pd.read_csv(db_file_name, index_col=0)
-    else:
-        data = pd.concat([data, pd.read_csv(db_file_name, index_col=0)])
-print("Done!")
-
+data = read_merged_files(input_folder, start_year, end_year)
 config[ModelParams.INPUT_SIZE] = len(data.columns)
-print(F'Data shape: {data.shape} Data axes {data.axes}')
-print("Done!")
 
 datetimes_str = data.index.values
 datetimes = np.array([datetime.strptime(x, constants.datetime_format.value) for x in datetimes_str])
 
 # %% -------- Normalizing data
-print("Normalizing data....")
-if norm_type == NormParams.min_max:
-    scaler = preprocessing.MinMaxScaler()
-if norm_type == NormParams.mean_zero:
-    scaler = preprocessing.StandardScaler()
-
-scaler = scaler.fit(data)
-data_norm_np = scaler.transform(data)
-data_norm_df = DataFrame(data_norm_np, columns=data.columns, index=data.index)
-
-# ******************* Saving Normalization params, scaler object **********************
 now = datetime.utcnow().strftime("%Y_%m_%d_%H_%M")
 model_name = F'{model_name_user}_{cur_pollutant}_{now}'
-
-scaler.path_file = join(norm_folder,F"{model_name}_scaler.pkl")  
-with open(scaler.path_file, 'wb') as f: #scaler.path_file must be defined during training.
-    pickle.dump(scaler, f)
-print(f'Scaler/normalizer object saved to: {scaler.path_file}')
-print(F'Done! Current shape: {data_norm_df.shape} ')
-
+file_name_norm = join(norm_folder,F"{model_name}_scaler.pkl")  
+print("Normalizing data....")
+data_norm_df = normalizeData(data, norm_type, file_name_norm)
 
 # %% ====== Getting all the orignal columns by type
 myregex = f"cont_.*"
@@ -316,8 +292,6 @@ addColumn(f"half_sin_day", start_idx, end_idx, X_df, ax[1], size=10)
 plt.show()
 plt.savefig('input.png')
 plt.close()
-# %%
-scaler.data_min_()
 # %% 
 print(f"Train examples: {X_df_train.shape[0]}")
 print(f"Validation examples {X_df_val.shape[0]}")

@@ -259,3 +259,18 @@ def generateDateColumns(datetimes):
     # plt.close()
 
     return time_cols, time_values
+
+def read_merged_files(input_folder, start_year, end_year):
+    # -------- Reading all the years in a single data frame (all stations)
+    print(f"Reading years {start_year} to {end_year}...")
+    for c_year in range(start_year, end_year+1):
+        db_file_name = join(input_folder, F"{c_year}_AllStations.csv") # Just for testing
+        print(F"============ Reading data for: {c_year}: {db_file_name}")
+        if c_year == start_year:
+            data = pd.read_csv(db_file_name, index_col=0)
+        else:
+            data = pd.concat([data, pd.read_csv(db_file_name, index_col=0)])
+
+    print(F'Data shape: {data.shape} Data axes {data.axes}')
+    print("Done!")
+    return data

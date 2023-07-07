@@ -23,7 +23,7 @@ def getPreprocWRFParams():
         PreprocParams.resampled_output_sizes: [
                                                 # {'rows': 1, 'cols': 1},
                                                 # {'rows': 2, 'cols': 2},
-                                                {'rows': 4, 'cols': 4},
+                                                # {'rows': 4, 'cols': 4},
                                                 {'rows': 8, 'cols': 8},
                                                 {'rows': 16, 'cols': 16}],
         # How to crop the data [minlat, maxlat, minlon, maxlon]

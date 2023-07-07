@@ -6,7 +6,6 @@ from conf.params import PreprocParams, DBToCSVParams
 file_name = "/ZION/AirPollutionData/Data/MergedDataCSV/16/2010_AllStations.csv"
 df = pd.read_csv(file_name, index_col=0, parse_dates=True)
 conf = getPreprocWRFParams()
-
 confdb = getPreprocDBParams()
 
 # %%
@@ -42,4 +41,3 @@ for c_var in confdb[DBToCSVParams.stations]:
         print(f"Number columns related to {c_var}: {c_total} sum: {tot_count}: {list(c_cols)}")
 
 # %%
-# myregex = f"^(?!{'.*|'.join(conf[PreprocParams.variables])}).*$"

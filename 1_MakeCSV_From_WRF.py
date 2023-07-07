@@ -48,8 +48,6 @@ def process_files(user_config, all_path_names, all_file_names, all_dates, all_fi
             print(F"ERROR!!!!! Failed to crop file {all_path_names[file_idx]}: {e}")
             continue
 
-
-
         # Subsampling the data
         for output_size in output_sizes:
             output_folder_final = F"{output_folder}_{output_size['rows']}_{output_size['cols']}"
@@ -122,6 +120,6 @@ if __name__== '__main__':
     end_year = 2017
 
     # Run this process in parallel splitting separating by years
-    NUMBER_PROC = 1
+    NUMBER_PROC = 16
     p = Pool(NUMBER_PROC)
     p.map(runParallel, range(start_year, end_year))
