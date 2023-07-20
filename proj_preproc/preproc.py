@@ -71,6 +71,13 @@ def normalizeData(data, norm_type, file_name):
     print(F'Done! Current shape: {data_norm_df.shape} ')
     return data_norm_df
 
+
+def loadScaler(file_name):
+    with open(file_name, 'rb') as f:
+        scaler = pickle.load(f)
+    
+    return scaler
+
 def deNormalize(data):
     unnormalize_data = data*(_max_value_ozone- _min_value_ozone) + _min_value_ozone
     return unnormalize_data
