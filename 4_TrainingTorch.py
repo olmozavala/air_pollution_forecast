@@ -35,10 +35,7 @@ from torch.nn.parallel import DistributedDataParallel
 # %% ========= Set the GPU to use ==================
 # In case we want to save the columns to temporal files for debugging purposes
 os.environ["CUDA_VISIBLE_DEVICES"] = "2"
-# %%
-def save_columns(X, name):
-    cols = pd.DataFrame(X.columns)
-    cols.to_csv(f"/home/olmozavala/air_pollution_forecast/AllColumns_{name}.csv")
+
 
 # %%
 start_year = 2014
