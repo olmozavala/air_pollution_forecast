@@ -3,7 +3,7 @@
 import sys
 # sys.path.append('./eoas_pyutils')  # Doesn't work when using a conda env outside home
 sys.path.append('/home/olmozavala/air_pollution_forecast/eoas_pyutils')
-
+import os
 import numpy as np
 import pickle
 from datetime import datetime, date, timedelta
@@ -77,6 +77,22 @@ def loadScaler(file_name):
         scaler = pickle.load(f)
     
     return scaler
+
+#Function to extract model_name from file names TODO: Pasar a proj_fun
+def extract_model_name(models_path):
+    # Get the list of files in the 'models' directory
+    files = os.listdir(models_path)
+
+    # Filter only the files with the model name
+    model_files = [file for file in files if file.endswith('.hdf5')]
+
+    if len(model_files) > 0:
+        # Extract the model name from the first file (assuming all files have the same name prefix)
+        model_name = model_files[0].split('-epoch')[0]
+        return model_name
+    else:
+        return None
+
 
 def deNormalize(data):
     unnormalize_data = data*(_max_value_ozone- _min_value_ozone) + _min_value_ozone
