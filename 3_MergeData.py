@@ -36,17 +36,19 @@ def merge_by_year(config):
     # Iterate over all pollutants
     for current_year in years:
         # Obtain all the 'available pollution dates'
-        print(F"\tReading data...")
+        print(F"\tReading data for year {current_year}...")
         notfound = []
         datetimes = pd.date_range(start=F'{current_year}-01-01', end= F'{current_year+1}-01-01', freq='H')
         alldata_by_year = pd.DataFrame(data=[], index=datetimes)
         # Iterate over all the pollutants and create a single df
         for cur_pollutant in pollutants:
+        # for cur_pollutant in ['cont_co']:
             # This loop merges the data for all stations a single pollutant
             for cur_station in stations:
-                print(F"============  {cur_pollutant} -- {cur_station} ==========================")
+            # for cur_station in ['IZT']:
                 db_file_name = join(input_folder, constants.db_output_folder.value,
                                     F"{cur_pollutant}_{cur_station}.csv")
+                print(F"============  {cur_pollutant} -- {cur_station} -- {db_file_name }==========================")
 
                 if not (os.path.exists(db_file_name)):
                     notfound.append(cur_station)
@@ -60,7 +62,16 @@ def merge_by_year(config):
 
                 data_cur_station = data_cur_station.rename(columns={cur_pollutant: f'{cur_pollutant}_{cur_station}'})
 
-                alldata_by_year = alldata_by_year.join(data_cur_station)
+                # print(f'The shape of the cur_station is (before): {data_cur_station.shape}')
+                # print(f'The shape of the df is (before): {alldata_by_year.shape}')
+                alldata_by_year = alldata_by_year.join(data_cur_station, how='left')
+
+                # print(f'The shape of the df is (after): {alldata_by_year.shape}')
+                # mem_usage = data_cur_station.memory_usage(deep=True).sum()/ (1024 ** 3)
+                # print(f'Total memory usage cur_station: {mem_usage:.2f} GB')
+                # mem_usage = alldata_by_year.memory_usage(deep=True).sum()/ (1024 ** 3)
+                # print(f'Total memory usage all: {mem_usage:.2f} GB')
+
 
         x_data_meteo, all_meteo_columns = readMeteorologicalData(datetimes, forecasted_hours, num_hours_in_netcdf,
                                                                     WRF_data_folder_name)

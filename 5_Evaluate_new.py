@@ -35,6 +35,7 @@ from copy import deepcopy
 
 from proj_io.inout import filter_data, add_previous_hours, add_forecasted_hours, get_column_names
 from proj_preproc.preproc import loadScaler
+print("Test")
 #%%
 config = get_makeprediction_config()
 # *********** Reads the parameters ***********
@@ -59,7 +60,7 @@ evaluate_hours = [1,6,12,18,24 ]
 models_folder = '/ZION/AirPollutionData/Data/Training/cont_otres_UIZ/models/'
 data_folder = '/ZION/AirPollutionData/Data/MergedDataCSV/16/'
 
-test_year = 2017
+test_year = 2014
 # %%
 # cur_station is now a fixed value
 cur_station = 'MER'
@@ -74,7 +75,7 @@ training_results_folder = '/ZION/AirPollutionData/Data/TrainingTestsOZ/MultipleS
 model_name = 'WPrevHours8_MultipleStation_SinglePollutant_WITH_Bootstrap_AllForecastedHoursUpTo2017_otres_2023_07_06_17_29'
 
 # file with testing data
-hardcoded_input_file = '/ZION/AirPollutionData/Data/MergedDataCSV/16/2017_AllStations.csv'
+hardcoded_input_file = '/ZION/AirPollutionData/Data/MergedDataCSV/16/2014_AllStations.csv'
 
 # path to normalization data
 norm_folder = join(training_results_folder,'norm')
@@ -467,3 +468,4 @@ def scatter_plot_by_column(df, metric, output_folder):
 scatter_plot_by_column(results_df, 'Índice de correlación', output_results_folder_img)
 scatter_plot_by_column(results_df, 'RMSE', output_results_folder_img)
 scatter_plot_by_column(results_df, 'MAE', output_results_folder_img)
+# %%

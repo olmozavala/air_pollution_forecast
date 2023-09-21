@@ -67,7 +67,7 @@ def getMergeParams():
         LocalTrainingParams.tot_num_quadrants: grid_size * grid_size,
         LocalTrainingParams.num_hours_in_netcdf: 24, # 72 (forecast)
         MergeFilesParams.output_folder: join(data_folder, constants.merge_output_folder.value),
-        MergeFilesParams.years: range(2010,2023)
+        MergeFilesParams.years: range(2018,2023)
     }
 
     return cur_config

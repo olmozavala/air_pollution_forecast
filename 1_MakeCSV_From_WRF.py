@@ -116,8 +116,8 @@ if __name__== '__main__':
     input_folder_old = user_config[PreprocParams.input_folder_old]
 
     # The max range is from 1980 to present
-    start_year = 2010
-    end_year = 2017
+    start_year = 2017
+    end_year = 2023
 
     # Run this process in parallel splitting separating by years
     NUMBER_PROC = 16

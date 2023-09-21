@@ -12,7 +12,7 @@ def getPollutantFromDateRange(conn, table, start_date, end_date, stations):
                 WHERE fecha BETWEEN '{start_date}' AND '{end_date}'
                 AND id_est IN ('{stations_str}')
                 ORDER BY fecha;"""
-    # print(sql)
+    print(sql)
     cur.execute(sql)
     rows = cur.fetchall()
     cur.close()

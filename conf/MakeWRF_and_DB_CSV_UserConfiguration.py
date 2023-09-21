@@ -10,7 +10,7 @@ output_folder = '/ZION/AirPollutionData/Data'  # Where are the CVS files saved
 def getPreprocWRFParams():
     make_csv_config= {
         # PreprocParams.variables: ['U10', 'V10', 'RAINC', 'T2', 'TH2', 'RAINNC', 'PBLH', 'SWDOWN', 'GLW'],
-        PreprocParams.variables: ['U10', 'V10', 'RAINC', 'T2', 'RAINNC', 'SWDOWN', 'GLW'],
+        PreprocParams.variables: ['U10', 'V10', 'RAINC', 'T2', 'RAINNC', 'SWDOWN', 'GLW','PH'],
         # Donde se guardan los csv
         # PreprocParams.input_folder_new: '/data/UNAM/Air_Pollution_Forecast/Data/WRF_Kraken/new_model',
         # PreprocParams.input_folder_old: '/data/UNAM/Air_Pollution_Forecast/Data/WRF_Kraken/old_model_v4',
@@ -23,9 +23,10 @@ def getPreprocWRFParams():
         PreprocParams.resampled_output_sizes: [
                                                 # {'rows': 1, 'cols': 1},
                                                 # {'rows': 2, 'cols': 2},
-                                                # {'rows': 4, 'cols': 4},
+                                                {'rows': 4, 'cols': 4},
                                                 {'rows': 8, 'cols': 8},
-                                                {'rows': 16, 'cols': 16}],
+                                                {'rows': 16, 'cols': 16}
+                                                ],
         # How to crop the data [minlat, maxlat, minlon, maxlon]
         # PreprocParams.bbox: [19.05,20,-99.46, -98.7],
         PreprocParams.bbox: [18.75, 20,-99.75, -98.5],
