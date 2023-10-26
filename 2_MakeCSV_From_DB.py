@@ -1,4 +1,3 @@
-
 from conf.MakeWRF_and_DB_CSV_UserConfiguration import getPreprocDBParams
 from conf.params import DBToCSVParams
 from db.sqlCont import getPostgresConn

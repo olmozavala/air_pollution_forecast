@@ -79,15 +79,19 @@ def merge_by_year(config):
         # Initialize the merged dataset with the meteorological data (using the same index/dates than the pollutants)
         alldata_by_year_meteo = DataFrame(x_data_meteo, columns=all_meteo_columns, index=alldata_by_year.index)
 
+        # --------- Correct meteo time from GMT to CDMX
+        print("\tCorrecting meteo time from GMT to CDMX ...")
+        alldata_by_year_meteo = alldata_by_year_meteo.set_index(alldata_by_year_meteo.index - pd.Timedelta(hours=6))
+        print("\tDone!")
+
         # --------- Merge meto with pollutants
-        alldata_by_year = alldata_by_year.join(alldata_by_year_meteo)
+        alldata_by_year = alldata_by_year.join(alldata_by_year_meteo).copy()
 
         # # ---------- Add the times columns (sin_day, cos_day, sin_year, cos_year, sin_week, cos_week)
         time_cols, time_values = generateDateColumns(datetimes=datetimes)
 
         for idx, cur_time_col in enumerate(time_cols):
             alldata_by_year[cur_time_col] = time_values[idx]
-
 
         print("\tSaving merged database ...")
         output_file_name = F"{current_year}_AllStations.csv"

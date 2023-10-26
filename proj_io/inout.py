@@ -52,7 +52,7 @@ def read_wrf_old_files_names(input_folder, start_date, end_date):
 
     return result_dates, result_files, result_files_coords, result_paths
 
-def read_wrf_files_names(input_folder, start_date, end_date):
+def read_wrf_files_names(input_folder, start_date, end_date, pref="d02"):
     """
     Function to save the address of the netCDF in a txt file
 
@@ -67,7 +67,7 @@ def read_wrf_files_names(input_folder, start_date, end_date):
         end_date = datetime.strptime(end_date, constants.date_format.value)
 
     input_folder
-    name_pattern = 'wrfout_d02_\d\d\d\d-\d\d-\d\d_00.nc'
+    name_pattern = f'wrfout_{pref}_\d\d\d\d-\d\d-\d\d_00.nc'
     date_pattern = '\d\d\d\d-\d\d-\d\d'
     file_re = re.compile(name_pattern + '.*')
     date_re = re.compile(date_pattern)
@@ -288,7 +288,7 @@ def get_column_names(df):
     # print(all_contaminant_columns.values)
     all_time_colums = df.filter(regex="day|year|week").columns
     # print(all_time_colums.values)
-    all_meteo_columns = [x for x in df.columns if x not in all_contaminant_columns and x not in all_time_colums]
+    all_meteo_columns = np.array([x for x in df.columns if x not in all_contaminant_columns and x not in all_time_colums])
     # print(all_meteo_columns)
     return all_contaminant_columns, all_meteo_columns, all_time_colums
 
@@ -300,7 +300,8 @@ def filter_data(df, filter_type='none', filtered_pollutant='', filtered_station=
     all_contaminant_columns, all_meteo_columns, all_time_colums = get_column_names(df)
     if filter_type == 'single_pollutant': # In case we want to use a single pollutant and station
         # ---------- Here we only keep the columns for the current pollutant all stations
-        keep_cols = [x for x in df.columns if x.startswith(f'cont_{filtered_pollutant}')] + all_time_colums.tolist() + all_meteo_columns
+        # keep_cols = [x for x in df.columns if x.startswith(f'cont_{filtered_pollutant}')] + all_time_colums.tolist() + all_meteo_columns.tolist()
+        keep_cols = [x for x in df.columns if x.find(filtered_pollutant) != -1] + all_time_colums.tolist() + all_meteo_columns.tolist()
         print(F"Keeping columns: {len(keep_cols)} original columns: {len(df.columns)}")
         X_df = df[keep_cols].copy()
     elif filter_type == 'single_pollutant_and_station': # In case we want to use a single pollutant and station
@@ -354,3 +355,13 @@ def save_columns(df, file_name):
     cols = pd.DataFrame(df.columns)
     cols.to_csv(file_name, index=False)
     print(f"Done saving file: {file_name}")
+
+def get_month_folder_esp(month):
+    '''
+    Returns the name of month in spanish 
+    '''
+    months_names = ['01_enero','02_febrero','03_marzo','04_abril',
+                    '05_mayo','06_junio','07_julio','08_agosto',
+                    '09_septiembre','10_octubre']
+
+    return months_names[month-1]

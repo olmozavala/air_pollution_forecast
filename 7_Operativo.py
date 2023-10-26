@@ -27,8 +27,9 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 from sklearn.metrics import mean_absolute_error, mean_absolute_percentage_error, mean_squared_error, r2_score
 from copy import deepcopy
-from proj_io.inout import filter_data, add_previous_hours, add_forecasted_hours, generateDateColumns, get_column_names, read_wrf_files_names
+from proj_io.inout import filter_data, add_previous_hours, add_forecasted_hours, generateDateColumns, get_column_names, read_wrf_files_names, get_month_folder_esp
 from proj_preproc.preproc import loadScaler
+from proj_prediction.prediction import compile_scaler
 
 # sys.path.append('./eoas_pyutils')  # Doesn't work when using a conda env outside home
 sys.path.append('/home/olmozavala/air_pollution_forecast/eoas_pyutils')
@@ -41,61 +42,70 @@ config = get_makeprediction_config()
 # *********** Reads the parameters ***********
 model_name_user = ""
 #  /ZION/AirPollutionData/Data/TrainingTestsPS/test01_15x3_5btsp_24ph_2010_2019/models/TestsPS_4paper_otres_2023_08_16_21_43-epoch-43-loss-0.25726959.hdf5
-model_weights_folder = 'ZION/AirPollutionData/Data/TrainingTestsPS/test01_15x3_5btsp_24ph_2010_2019/models' #f'{output_folder}' # lo copio así por si output luego se usa en otra cosa...
-model_weights_file = join(model_weights_folder, 'TestsPS_4paper_otres_2023_08_16_21_43-epoch-43-loss-0.25726959.hdf5')
+model_weights_folder = '/ZION/AirPollutionData/Data/TrainingTestsPS/test01_15x3_5btsp_24ph_2010_2019/models' #f'{output_folder}' # lo copio así por si output luego se usa en otra cosa...
+# model_weights_file = join(model_weights_folder, 'TestsPS_4paper_otres_2023_08_16_21_43-epoch-43-loss-0.25726959.hdf5')
+model_weights_file = '/ZION/AirPollutionData/Data/TrainingTestsPS/test01_15x3_5btsp_24ph_v20_2010_2019/models/TestsPS_4paper_otres_2023_10_26_20_45-epoch-47-loss-0.25776392.hdf5'
+file_name_norm = "/ZION/AirPollutionData/Data/TrainingTestsOZ/Bootstrap_15_p_2_9_24hprev_2010_2019/norm/TestOZ_otres_2023_07_31_21_55_scaler.pkl"
 cur_pollutant = "otres"
 hours_before = 24  # Hours previous from pollution info
 forecasted_hours = 24  # Forecasted hours from 1 to 24
+grid_size_wrf = 4  # 4 for 4x4
 
 wrf_config = getPreprocWRFParams()
-meto_var_names = wrf_config[PreprocParams.variables]
-wrf_input_folder = wrf_config[PreprocParams.input_folder_new]
+meteo_var_names = wrf_config[PreprocParams.variables]
+wrf_input_folder = "/ServerData/WRF_2017_Kraken"
 bbox = wrf_config[PreprocParams.bbox]
 times = wrf_config[PreprocParams.times]
 
-# ********** Reading and preprocessing data *******
 all_stations = ["UIZ","AJU" ,"ATI" ,"CUA" ,"SFE" ,"SAG" ,"CUT" ,"PED" ,"TAH" ,"GAM" ,"IZT" ,"CCA" ,"HGM" ,"LPR" ,
                  "MGH" ,"CAM" ,"FAC" ,"TLA" ,"MER" ,"XAL" ,"LLA" ,"TLI" ,"UAX" ,"BJU" ,"MPA" ,
                  "MON" ,"NEZ" ,"INN" ,"AJM" ,"VIF"]
-# all_stations = ["UIZ"]
 
-file_name_norm = "/ZION/AirPollutionData/Data/TrainingTestsOZ/Bootstrap_15_p_2_9_24hprev_2010_2019/norm/TestOZ_otres_2023_07_31_21_55_scaler.pkl"
-
-# %% This should be an empty dataframe with proper column names
+# %% Creat an empty dataframe with proper column names
 contaminant_columns = [f'cont_{cur_pollutant}_{station}' for station in all_stations]
 prev_contaminant_columns = [f'minus_{hour+1:02d}_{x}' for hour in range(hours_before)  for x in contaminant_columns]
-all_meteo_columns = [f'{meteo_var}_{loc}_h{hour}' for meteo_var in meto_var_names for loc in range(16) for hour in range(1, forecasted_hours+1)]
+all_meteo_columns = [f'{meteo_var}_{loc}_h{hour}' for meteo_var in meteo_var_names for loc in range(16) for hour in range(0, forecasted_hours)]
 all_time_colums = ['half_sin_day','half_cos_day','half_sin_year','half_cos_year','half_sin_week','half_cos_week',
                    'sin_day','cos_day','sin_year','cos_year','sin_week','cos_week']
 
+y_cols = [f'plus_{hour+1:02d}_{x}' for hour in range(forecasted_hours)  for x in contaminant_columns]
+
 print(f"Total number of columns: {len(contaminant_columns) + len(prev_contaminant_columns) + len(all_meteo_columns) + len(all_time_colums)}")
+print(f"stations {len(contaminant_columns)} prevhours {len(prev_contaminant_columns)} meteo: {len(all_meteo_columns)} time: {len(all_time_colums)}")
+print(f"Output columns total: {len(y_cols)}")
 date_format = '%Y-%m-%d:%H'
 timestamp_format = '%Y-%m-%d %H:%M:%S'
 
+# %%
+forecast_time = datetime.now().replace(minute=0, second=0, microsecond=0)
+forecast_time  = datetime.strptime("2023-09-03:8", date_format)
+print(f"We will try to forecast time: {forecast_time.strftime(timestamp_format)}")
 
 #%% --------------------- Read from database (current values and previous ones)
-end_datetime_df = datetime.now().replace(minute=0, second=0, microsecond=0)
-start_datetime_df = end_datetime_df - timedelta(hours=hours_before+3)  # We are adding these 3 just for safety
-print(F"Getting data from {start_datetime_df.strftime(date_format)} to {end_datetime_df.strftime(date_format)}")
+start_datetime_df = forecast_time - timedelta(hours=hours_before+3)  # We are adding these 3 just for safety
+print(F"Getting data from {start_datetime_df.strftime(date_format)} to {forecast_time.strftime(date_format)}")
 
 conn = getPostgresConn()
-cur_data = np.array(getPollutantFromDateRange(conn, f'cont_{cur_pollutant}', start_datetime_df, end_datetime_df, all_stations))
+cur_data = np.array(getPollutantFromDateRange(conn, f'cont_{cur_pollutant}', start_datetime_df, forecast_time, all_stations))
 dates = np.unique(np.array([x[0] for x in cur_data]))
 conn.close()
 
-# We update the end_datetime to the last one we got from the database
-end_datetime = dates[-1]
-start_datetime = end_datetime - timedelta(hours=hours_before)
+# We update the end datetime to the last one we got from the database
+forecast_time = dates[-1]
+print(f"We will try to forecast time: {forecast_time.strftime(timestamp_format)}")
+start_datetime = forecast_time - timedelta(hours=hours_before)
 
 # Define an emtpy X input to our model (we could validate all the sizes are correct here)
-X = DataFrame(index=[end_datetime], columns=contaminant_columns+all_time_colums+all_meteo_columns+prev_contaminant_columns)
+X = DataFrame(index=[forecast_time], columns=contaminant_columns+all_time_colums+all_meteo_columns+prev_contaminant_columns)
 
-# %%
 # Create empty dataframe with proper dimensions
 if len(dates) < hours_before:
     raise Exception("Not enough dates were found")
 
+print("Done!")
+# %%
 # Template dataframe
+print("Making empty dataset...")
 df = DataFrame(index=dates[0:hours_before], columns=[f'cont_{cur_pollutant}_{station}' for station in all_stations])
 
 for c_date in dates: # We are adding 1 because we want to get the current hour
@@ -103,333 +113,187 @@ for c_date in dates: # We are adding 1 because we want to get the current hour
         c_date_data = cur_data[cur_data[:,0] == c_date] # Data from the database for current date
         desired_data = c_date_data[c_date_data[:,2] == c_station] # If the station is the same as the one in the database
         if desired_data.shape[0] > 0:
-            # print(f"Yes data for {c_date} - {c_station}")
             df.loc[c_date.strftime(timestamp_format),f'cont_{cur_pollutant}_{c_station}'] = desired_data[0,1]
-        # else:
-            # print(f"No data for {c_date} - {c_station}")
+# print(df.head())
+print("Done!")
 
-print(df.head())
 # %% 
+print("Adding prevoius hours...")
 df_shifted = add_previous_hours(df, hours_before=hours_before)
-print(df_shifted.head())
+# print(df_shifted.head())
+print("Done!")
 
 # %%
+print("Updaing our template dataframe with pollution data...")
+print(f"(Before) Number of not nan values in input data {X.count().sum()}/{X.shape[1]}")
 X.update(df_shifted)
-print(X.head())
-#%% Add th time columns here
-time_cols, time_values = generateDateColumns(datetimes=[end_datetime])
-X.update(DataFrame(index=[end_datetime], columns=time_cols, data=np.array([x[0] for x in time_values]).reshape(1,len(time_values))))
-print(X)
+print(f"(After) Number of not nan values in input data {X.count().sum()}/{X.shape[1]}")
+print("Done!")
+#%% Add time columns here
+print("Adding time columns...")
+time_cols, time_values = generateDateColumns(datetimes=[forecast_time])
+X.update(DataFrame(index=[forecast_time], columns=time_cols, data=np.array([x[0] for x in time_values]).reshape(1,len(time_values))))
+print(f"(After) Number of not nan values in input data {X.count().sum()}/{X.shape[1]}")
 
-#%% Read from WRF forecast (current values and next ones)
-# end_datetime_wrf = end_datetime
-end_datetime_wrf = datetime.strptime("2023-06-01:8", date_format)
-start_datetime_wrf = end_datetime_wrf - timedelta(hours=hours_before)  # We are adding these 3 just for safety
-output_size = 4
+#%% ----------------------- Read from WRF forecast (current values and next ones)
+print("Adding meteorological data...")
+gmt_correction = 6
+start_datetime_wrf = forecast_time - timedelta(hours=gmt_correction)  # We are adding these 3 just for safety 
+cur_month = get_month_folder_esp(start_datetime_wrf.month)
 
-all_dates, all_file_names, all_path_names = read_wrf_files_names(wrf_input_folder, start_datetime_wrf, end_datetime_wrf)
-print(f"All dates {all_dates}, all file names {all_file_names}, all path names {all_path_names}")
+# Move outside here
+wrf_file_name = f"wrfout_d01_{forecast_time.strftime('%Y-%m-%d')}_00.nc"
+wrf_file = join(join(wrf_input_folder,str(forecast_time.year), cur_month), wrf_file_name)
+print(f"Working with wrf file: {wrf_file}")
+if not(os.path.exists(wrf_file)):
+    raise Exception(f"File {wrf_file} does not exist")
 
-assert len(all_dates) == 1
 
-cur_xr_ds = xr.open_dataset(all_path_names[0], decode_times=False)
-cropped_xr_ds, newLAT, newLon = crop_variables_xr(cur_xr_ds, meto_var_names, bbox, times=times)
+cur_xr_ds = xr.open_dataset(wrf_file, decode_times=False)
+cropped_xr_ds, newLAT, newLon = crop_variables_xr(cur_xr_ds, meteo_var_names, bbox, times=times)
 
 # Subsampling the data
-subsampled_xr_ds, coarselat, coarselon = subsampleData(cropped_xr_ds, meto_var_names, output_size, output_size)
+subsampled_xr_ds, coarselat, coarselon = subsampleData(cropped_xr_ds, meteo_var_names, grid_size_wrf, grid_size_wrf)
 wrf_time_format = '%Y-%m-%d_%H:%M:%S'
 wrf_dates = np.array([datetime.strptime(x.decode('utf-8'), wrf_time_format) for x in cur_xr_ds['Times'].values])
-first_time_idx = np.where(wrf_dates >= end_datetime_wrf)[0][0]
-# TODO we are assumming the forecasted hours will ALWAYS be available
+print(f"Original forecast time: {forecast_time} \n WRF dates in file: {wrf_dates}")
+first_time_idx = np.where(wrf_dates >= start_datetime_wrf)[0][0]
+print(f"Assuming current time from wrf is {wrf_dates[first_time_idx]} (Original forecast time: {forecast_time} )")
 meteo_cols = {}
-for cur_var_name in meto_var_names:
+for cur_var_name in meteo_var_names:
     for cur_hour, wrf_hour_index in enumerate(range(first_time_idx, first_time_idx+forecasted_hours)):
         cur_var_np = subsampled_xr_ds[cur_var_name].values
         var_flat_values = np.array(cur_var_np[wrf_hour_index,:,:].flatten())
         temp = {f'{cur_var_name}_{i}_h{cur_hour}':val for i, val in enumerate(var_flat_values)} 
         meteo_cols = {**meteo_cols, **temp}
 
-temp_df = DataFrame(index=[end_datetime], data=meteo_cols)
+temp_df = DataFrame(index=[forecast_time], data=meteo_cols)
+assert temp_df.index == X.index
 X.update(temp_df)
+print(f"(After) Number of not nan values in input data {X.count().sum()}/{X.shape[1]}")
 
-# # %% -------- Normalizing data
-# # loading of original scaler object
-# scaler = loadScaler(file_name_norm)
-# 
-# #%%
-# print("Normalizing data....")
-# data_norm_np = scaler.transform(data)
-# data_norm_df = DataFrame(data_norm_np, columns=data.columns, index=data.index)
-# 
-# print(data_norm_df)
-# 
-# # %% ====== Getting all the orignal columns by type
-# all_contaminant_columns, all_meteo_columns, all_time_colums = get_column_names(data_norm_df)
-# 
-# # %% ====== Remove columns for other pollutants
-# X_df = filter_data(data_norm_df, filter_type='single_pollutant', filtered_pollutant=cur_pollutant) 
-# 
-# print(X_df.columns.values)
-# print(F'X {X_df.shape}, Memory usage: {X_df.memory_usage().sum()/1024**2:02f} MB')
-# 
-# # %% ====== Adding the previous hours of the pollutants as extra columns (all contaminants)
-# print(F"Building X and Y ....")
-# X_df = add_previous_hours(X_df, hours_before)
-# 
-# # %% ====== Adding the forecasted hours of the pollutants as the predicted column Y (specific contaminant)
-# print("\tAdding the forecasted hours of the cur_pollutant as the predicted column Y...")
-# Y_df = add_forecasted_hours(X_df, cur_pollutant, range(1,forecasted_hours+1))
-# 
-# # %% Remove the first hours because ?
-# X_df = X_df.iloc[hours_before:,:]
-# Y_df = Y_df.iloc[hours_before:,:]
-# print("Done!")
-# 
-# print(F'Original {data_norm_df.shape}')
-# print(F'X {X_df.shape}, Memory usage: {X_df.memory_usage().sum()/1024**2:02f} MB')
-# print(F'Y {Y_df.shape}, Memory usage: {Y_df.memory_usage().sum()/1024**2:02f} MB')
-# 
-# # %%
-# print("Removing time index...")
-# X_df.reset_index(drop=True, inplace=True)
-# Y_df.reset_index(drop=True, inplace=True)
-# 
-# #%% Replace all the nan values with another value
-# replace_value = 0
-# print(f"Replacing nan values with {replace_value}...")
-# X_df.fillna(replace_value, inplace=True)
-# Y_df.fillna(replace_value, inplace=True)
-#  
-# # %% ******************* Selecting the model **********************
-# config[ModelParams.INPUT_SIZE] = INPUT_SIZE
-# config[ModelParams.NUMBER_OF_OUTPUT_CLASSES] = len(Y_cols)
-# 
-# print('Reading model ....')
-# model = select_1d_model(config)
-# 
-# # *********** Reads the weights***********
-# print('Reading weights ....')
-# model.load_weights(model_weights_file)
-# 
-# 
-# # %% Calculo de predicciones de el dataset de test:
-# Y_pred = model.predict(X_df.values)
-# 
-# # %% A function is defined to generate custom scaler objects
-# 
-# # Denormalize
-# def compile_scaler(old_scaler, new_columns):
-#     # Crear una copia del objeto StandardScaler original
-#     new_scaler = deepcopy(old_scaler)
-#     
-#     # Crear listas para almacenar las nuevas medias y escalas
-#     new_means = []
-#     new_scales = []
-#     
-#     # Convertir feature_names_in_ a lista
-#     old_features = old_scaler.feature_names_in_.tolist()
-#     
-#     # Iterar a través de las columnas especificadas
-#     for column in new_columns:
-#         # Identificar la columna original correspondiente
-#         original_column = column.split("_", 2)[-1]
-#         
-#         # Identificar el índice de la columna original en feature_names_in_
-#         original_index = old_features.index(original_column)
-#         
-#         # Añadir la media y la escala de la columna original a las nuevas listas
-#         new_means.append(old_scaler.mean_[original_index])
-#         new_scales.append(old_scaler.scale_[original_index])
-#     
-#     # Actualizar los atributos mean_ y scale_ del nuevo objeto StandardScaler
-#     new_scaler.mean_ = np.array(new_means)
-#     new_scaler.scale_ = np.array(new_scales)
-#     
-#     # Actualizar el atributo feature_names_in_ para que incluya solo las columnas especificadas
-#     new_scaler.feature_names_in_ = new_columns
-#     
-#     return new_scaler
-# 
-# scaler_y = compile_scaler(scaler,Y_cols)
-# 
-# #%% Desescalar las predicciones
-# Y_pred_descaled = scaler_y.inverse_transform(Y_pred)
-# 
-# # Convertir Y_pred_descaled en un DataFrame de pandas
-# y_pred_descaled_df = pd.DataFrame(Y_pred_descaled, columns=scaler_y.feature_names_in_)
-# # Verificar el DataFrame
-# print(y_pred_descaled_df.head())
-# 
-# 
-# # %% Descaling Y_df to get y_true_df
-# y_true_df = pd.DataFrame(scaler_y.inverse_transform(Y_df), columns=Y_df.columns)
-# # Verificar el DataFrame
-# print(y_true_df.head())
-# 
-# 
-# # %% Funcion de ploteado hexbin y métricas
-# def analyze_column_plot(cur_column):
-#     cur_station = cur_column.split('_')[-1]
-#     # Obtener los arrays de predicciones y valores reales
-#     y_pred_plot = y_pred_descaled_df[cur_column].to_numpy()
-#     y_true_plot = y_true_df[cur_column].to_numpy()
-# 
-#     test_str = f'{cur_station}_{cur_pollutant}_{test_year}'
-# 
-#     # Imprimir el índice de correlación
-#     data = {"x": y_pred_plot, "y": y_true_plot.squeeze()}
-#     df = pd.DataFrame(data)
-#     df.dropna(inplace=True)
-#     corr_coef = df["x"].corr(df["y"])
-#     print(f"Índice de correlación:                     {corr_coef:.4f}")
-# 
-#     # Filtrar los valores válidos
-#     mask = ~np.isnan(y_true_plot) & ~np.isnan(y_pred_plot)
-#     y_true = y_true_plot[mask]
-#     y_prediction = y_pred_plot[mask]
-# 
-#     # Calcular las métricas
-#     mae = mean_absolute_error(y_true, y_prediction)
-#     mape = mean_absolute_percentage_error(y_true, y_prediction)
-#     mse = mean_squared_error(y_true, y_prediction)
-#     rmse = np.sqrt(mse)
-#     r2 = r2_score(y_true, y_prediction)
-# 
-#     # Definir el tamaño de los bins de hexágono
-#     gridsize = 30
-# 
-#     # Graficar el hexbin usando Matplotlib
-#     sns.set()
-#     fig, ax = plt.subplots(figsize=(9, 7))
-# 
-#     # Establecer los ejes X e Y con el mismo rango de unidades
-#     max_val = 180 
-#     ax.set_xlim([0, max_val])
-#     ax.set_ylim([0, max_val])
-# 
-#     hb = ax.hexbin(y_true, y_prediction, gridsize=gridsize, cmap="YlGnBu", norm=LogNorm(), mincnt=1)
-#     cb = plt.colorbar(hb, ax=ax)
-#     cb.set_label('Counts', fontsize=16)
-# 
-#     # Agregar la línea 1 a 1 y la línea de ajuste al gráfico
-#     ax.plot(range(0,max_val), range(0,max_val), color='red', linewidth=4, alpha=0.7, label='Pronóstico Ideal')
-#     slope, intercept = np.polyfit(y_true, y_prediction, 1)
-#     ax.plot(y_true, slope * y_true + intercept, color='blue', linewidth=4, alpha=0.7, label='Ajuste lineal')
-# 
-#     # Etiquetas de los ejes y título del gráfico
-#     ax.set_xlabel(r'Nivel contaminante observado $O_3$ ppb', fontsize=18)
-#     ax.set_ylabel(r'Nivel contaminante pronosticado $O_3$ ppb', fontsize=18)
-#     plt.title(f"Estación: {cur_station} {test_year}\n", fontsize=16)
-# 
-#     # Añadir la ecuación de la recta al gráfico
-#     eqn = f"""Estación: {cur_station} {test_year}
-#     Índice de correlación: {corr_coef:.4f}
-#     RMSE: {rmse:.2f} ppb
-#     Pronosticado = {slope:.2f}*Observado + {intercept:.2f}
-#     MAE: {mae:.2f} ppb
-#     MAPE: {mape:.2e} 
-#     N: {len(y_true)}
-#     """
-#     ax.text(0.1, 0.75, eqn, transform=ax.transAxes, fontsize=12)
-# 
-#     # Agregar la leyenda
-#     ax.legend(loc=(0.75, 0.1))
-# 
-#     # Mostrar el gráfico
-#     plt.tight_layout()
-#     plt.savefig(join(output_results_folder_img,f'hexbin_{cur_column}.png'), dpi=300)  # Guardar la figura como PNG
-#     plt.show()
-# 
-# #%%
-# def analyze_column(cur_column, generate_plot=True):
-#     # Obtener los arrays de predicciones y valores reales
-#     y_pred_plot = y_pred_descaled_df[cur_column].to_numpy()
-#     y_true_plot = y_true_df[cur_column].to_numpy()
-# 
-#     # Imprimir el índice de correlación
-#     data = {"x": y_pred_plot, "y": y_true_plot.squeeze()}
-#     df = pd.DataFrame(data)
-#     df.dropna(inplace=True)
-#     corr_coef = df["x"].corr(df["y"])
-#     print(f"Índice de correlación:                     {corr_coef:.4f}")
-# 
-#     # Filtrar los valores válidos
-#     mask = ~np.isnan(y_true_plot) & ~np.isnan(y_pred_plot)
-#     y_true = y_true_plot[mask]
-#     y_prediction = y_pred_plot[mask]
-# 
-#     # Calcular las métricas
-#     mae = mean_absolute_error(y_true, y_prediction)
-#     mape = mean_absolute_percentage_error(y_true, y_prediction)
-#     mse = mean_squared_error(y_true, y_prediction)
-#     rmse = np.sqrt(mse)
-#     r2 = r2_score(y_true, y_prediction)
-# 
-#     if generate_plot:
-#         # No incluir el código de trazado en esta versión
-#         analyze_column_plot(cur_column)
-# 
-#     # Retornar las métricas en un diccionario
-#     results = {
-#         "Columna": cur_column,
-#         "Índice de correlación": corr_coef,
-#         "MAE": mae,
-#         "MAPE": mape,
-#         "MSE": mse,
-#         "RMSE": rmse,
-#         "R2": r2
-#     }
-#     return results
-# 
-# 
-# # %% Evaluate only a set of stations and hours
-# for station in evaluate_stations:
-#     for hour in evaluate_hours:
-#         cur_column = f'plus_{hour:02}_cont_otres_{station}'
-#         print(f'column name:{cur_column}')
-#         analyze_column(cur_column)
-# 
-# 
-# # %% #Crear DataFrame y guardar los resultados en csv
-# results_df = pd.DataFrame(columns=["Columna", "Índice de correlación", "MAE", "MAPE", "MSE", "RMSE", "R2"])
-# 
-# # Iterar sobre las columnas
-# for cur_column in y_pred_descaled_df.columns:
-#     print(cur_column)
-#     column_results = analyze_column(cur_column, generate_plot=False)
-#     results_df = results_df.append(column_results, ignore_index=True)
-# 
-# # Imprimir el DataFrame de resultados
-# print(results_df)
-# results_df.to_csv(join(output_results_folder_data,'results_df.csv'), index=False)
-# 
-# # %% Scatter plot for the given metrics
-# def scatter_plot_by_column(df, metric, output_folder):
-#     plt.figure(figsize=(10, 6))
-#     plt.scatter(df.index, df[metric])
-#     plt.xlabel('Columna')
-#     plt.ylabel(metric)
-#     plt.title(f'{metric} por columna')
-# 
-#     # Ajustar los ticks y etiquetas del eje x
-#     x_ticks = df.index[::30]  # Obtener cada 30º índice
-#     x_labels = df['Columna'][::30]  # Obtener cada 30º nombre de columna
-#     plt.xticks(x_ticks, x_labels, rotation=90)
-# 
-#     # Agregar líneas de grid vertical y horizontalmente
-#     for x in x_ticks:
-#         plt.axvline(x, color='gray', linestyle='dashed', alpha=0.5)
-#     plt.grid(True, axis='x', linestyle='dashed', alpha=0.5)  # Agregar grid en el eje x
-# 
-#     y_ticks = plt.gca().get_yticks()  # Obtener los ticks del eje y
-#     for y in y_ticks:
-#         plt.axhline(y, color='gray', linestyle='dashed', alpha=0.5)
-#     plt.grid(True, axis='y', linestyle='dashed', alpha=0.5)  # Agregar grid en el eje y
-# 
-#     plt.savefig(join(output_folder, f'{metric.lower()}_scatter_plot.png'), dpi=300)
-#     plt.show()
-# 
-# 
-# scatter_plot_by_column(results_df, 'Índice de correlación', output_results_folder_img)
-# scatter_plot_by_column(results_df, 'RMSE', output_results_folder_img)
-# scatter_plot_by_column(results_df, 'MAE', output_results_folder_img)
+# ------------------------------ FINALLY WE HAVE FULL INPUT X -----------------------------------
+
+# %% ====== Getting all the orignal columns by type
+all_contaminant_columns, all_meteo_columns, all_time_colums = get_column_names(X)
+print(f"Number of columns total: {X.shape[1]} contaminant: {len(all_contaminant_columns)} Meteo: {len(all_meteo_columns)} Time:{len(all_time_colums)}")
+
+# %% ====== Remove columns for other pollutants
+print("Filtering single pollutant..")
+X_filt = filter_data(X, filter_type='single_pollutant', filtered_pollutant=cur_pollutant) 
+all_contaminant_columns, all_meteo_columns, all_time_colums = get_column_names(X_filt)
+print(f"(After) Number of not nan values in input data {X_filt.count().sum()}/{X_filt.shape[1]}")
+print(f"(After) contaminant: {len(all_contaminant_columns)} Meteo: {len(all_meteo_columns)} Time:{len(all_time_colums)}")
+
+# %% -------- Normalizing data
+# loading of original scaler object
+scaler_orig = loadScaler(file_name_norm)
+
+def generate_scaler(old_scaler, new_columns):
+    # Create a copy of the original StandardScaler object
+    new_scaler = deepcopy(old_scaler)
+    
+    # Create lists to store the new means, scales, and variances
+    new_means = []
+    new_scales = []
+    new_vars = []
+    new_samples = []
+    
+    # Convert feature_names_in_ to list
+    old_features = old_scaler.feature_names_in_.tolist()
+    
+    # Iterate through the specified columns
+    for column in new_columns:
+        # Identify the corresponding original column
+        if column.find('minus') != -1 or column.find('plus') != -1: # We will add these new colums as the 'original' scaler
+            original_column = '_'.join(column.split('_')[2:])  # We 'remove' the last 'minus_hr' part
+        else:
+            original_column = column
+        
+        # Identify the index of the original column in feature_names_in_
+        original_index = old_features.index(original_column)
+        
+        # Add the mean, scale, and variance of the original column to the new lists
+        new_means.append(old_scaler.mean_[original_index])
+        new_scales.append(old_scaler.scale_[original_index])
+        new_vars.append(old_scaler.var_[original_index])
+        new_samples.append(old_scaler.n_samples_seen_[original_index])
+    
+    # Update the mean_, scale_, and var_ attributes of the new StandardScaler object
+    new_scaler.mean_ = np.array(new_means)
+    new_scaler.scale_ = np.array(new_scales)
+    new_scaler.var_ = np.array(new_vars)
+    new_scaler.n_samples_seen_ = np.array(new_samples)
+    
+    # Update the feature_names_in_ attribute to only include the specified columns
+    new_scaler.feature_names_in_ = new_columns
+    
+    # Update n_features_in_ to reflect the number of features in the new scaler
+    new_scaler.n_features_in_ = len(new_columns)
+    
+    return new_scaler
+
+scaler = generate_scaler(scaler_orig, X_filt.columns)
+
+print("Normalizing data....")
+data_norm_np = scaler.transform(X_filt)
+X_norm = DataFrame(data_norm_np, columns=X.columns, index=X.index)
+
+print(F'X {X_norm.shape}, Memory usage: {X_norm.memory_usage().sum()/1024**2:02f} MB')
+
+# %%
+print("Removing time index...")
+X_norm.reset_index(drop=True, inplace=True)
+ 
+#%% Replace all the nan values with another value
+replace_value = 0
+print(f"Replacing nan values with {replace_value}...")
+X_norm.fillna(replace_value, inplace=True)
+ 
+# %% ******************* Selecting the model **********************
+config[ModelParams.INPUT_SIZE] = X_norm.shape[1]
+config[ModelParams.NUMBER_OF_OUTPUT_CLASSES] = len(all_stations)*forecasted_hours
+
+print('Reading model ....')
+model = select_1d_model(config)
+
+# *********** Reads the weights***********
+print('Reading weights ....')
+model.load_weights(model_weights_file)
+print("Done!")
+
+# %% Calculo de predicciones de el dataset de test:
+print('Making prediction ....')
+Y_pred = model.predict(X_norm.values)
+print("Done!")
+
+# %% A function is defined to generate custom scaler objects
+
+print("Denormalizing...")
+scaler_y = generate_scaler(scaler,y_cols)
+print("Done ...")
+
+#%% Desescalar las predicciones
+Y_pred_descaled = scaler_y.inverse_transform(Y_pred)
+
+# Convertir Y_pred_descaled en un DataFrame de pandas
+y_pred_descaled_df = pd.DataFrame(Y_pred_descaled, columns=scaler_y.feature_names_in_)
+# Verificar el DataFrame
+print(y_pred_descaled_df.head())
+
+# %% Plot results
+t = 30
+fig, axs = plt.subplots(1, 1, figsize=(10, 10))
+
+for idx, c_station in enumerate(all_stations[0:t]):
+    axs.plot(y_pred_descaled_df.filter(like=c_station).loc[0].values, label=c_station)
+    axs.set_title(c_station)
+    # Set the x axis as times starting from forecast_time
+    axs.set_xticks(range(forecasted_hours))
+    # axs.set_xticklabels([x.strftime(date_format) for x in [forecast_time + timedelta(hours=y) for y in range(forecasted_hours)]])
+    axs.set_xticklabels([x.strftime("%H") for x in [forecast_time + timedelta(hours=y) for y in range(forecasted_hours)]])
+
+
+plt.legend()
+plt.title(f"Forecast for all stations at time {forecast_time.strftime(date_format)}")
+plt.show()
