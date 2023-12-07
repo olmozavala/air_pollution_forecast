@@ -321,7 +321,7 @@ def add_previous_hours(df, hours_before=24):
     print("\tAdding the previous hours of the pollutants as additional columns...")
 
     contaminant_columns, _, _= get_column_names(df)
-    print(F"\t\tContaminant columns: {contaminant_columns.values}")
+    # print(F"\t\tContaminant columns: {contaminant_columns.values}")
     for c_hour in range(1, hours_before+1):
         for c_column in contaminant_columns:
             df[f'minus_{c_hour:02d}_{c_column}'] = df[c_column].shift(c_hour)
@@ -362,6 +362,6 @@ def get_month_folder_esp(month):
     '''
     months_names = ['01_enero','02_febrero','03_marzo','04_abril',
                     '05_mayo','06_junio','07_julio','08_agosto',
-                    '09_septiembre','10_octubre']
+                    '09_septiembre','10_octubre', '11_noviembre', '12_diciembre']
 
     return months_names[month-1]
