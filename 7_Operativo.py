@@ -89,7 +89,7 @@ def operativo(forecast_time):
     timestamp_format = '%Y-%m-%d %H:%M:%S'
 
     # %%
-    print(f"We will try to forecast time: {forecast_time.strftime(timestamp_format)}")
+    print(f"################################# We will try to forecast time: {forecast_time.strftime(timestamp_format)} #######################")
 
     try:
         #%% --------------------- Read from database (current values and previous ones)
@@ -286,6 +286,7 @@ def operativo(forecast_time):
         scaler = generate_scaler(scaler_orig, X_filt.columns)
 
         print("Normalizing data....")
+        # X_filt.to_csv(f"{forecast_time.strftime('%Y_%m_%d_%H')}.csv", index=False)
         data_norm_np = scaler.transform(X_filt)
         X_norm = DataFrame(data_norm_np, columns=X.columns, index=X.index)
 
@@ -314,6 +315,7 @@ def operativo(forecast_time):
 
         # %% Calculo de predicciones de el dataset de test:
         print('Making prediction ....')
+
         Y_pred = model.predict(X_norm.values)
         print("Done!")
 
@@ -356,6 +358,7 @@ def operativo(forecast_time):
 
             try: 
                 conn = getPostgresConn()
+                # TODO we need to verify if there is already a forecast for this time
                 pred_by_station = y_pred_descaled_df.filter(regex=c_station)
                 sql = f"""INSERT INTO forecast_otres (fecha, id_tipo_pronostico, id_est, val, {all_hours}) 
                             VALUES (%s, %s, %s, %s, {','.join(['%s']*24)})"""
@@ -370,7 +373,6 @@ def operativo(forecast_time):
                 print(e)
             finally:
                 conn.close()
-            print("Done")
 
     except Exception as e:
         print(f"Error: Failed for {forecast_time.strftime(date_format)} with error {e}")
@@ -379,6 +381,7 @@ def operativo(forecast_time):
 if __name__ == "__main__":
     # forecast_time = datetime.now().replace(minute=0, second=0, microsecond=0)
     # forecast_time  = datetime.strptime("2023-07-26:3", date_format)
-    forecasted_times = pd.date_range(start='2023-01-05', end='2023-07-27', freq='H')
+    # forecasted_times = pd.date_range(start='2023-11-29', end='2023-11-30', freq='H')
+    forecasted_times = pd.date_range(start='2019-01-01 00:00:00', end='2019-01-03', freq='H')
     for c_forecast_time in forecasted_times:
         operativo(c_forecast_time)
