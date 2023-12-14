@@ -416,6 +416,6 @@ if __name__ == "__main__":
     #     operativo(forecast_time)
     #     waiting_with_updates(60, 10)
     
-    forecasted_times = pd.date_range(start='2019-01-03 00:00:00', end='2019-01-05', freq='H')
+    forecasted_times = pd.date_range(start='2019-01-15 00:00:00', end='2019-12-01', freq='H')
     for c_forecast_time in forecasted_times:
         operativo(c_forecast_time)

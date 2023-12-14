@@ -4,7 +4,7 @@ from geopandas import GeoDataFrame
 from pandas import DataFrame
 
 def getPollutantFromDateRange(conn, table, start_date, end_date, stations):
-    """ Gets all the table names of our DB"""
+    """ Gets all the values of a pollutant from a date range for a list of stations """
     cur = conn.cursor()
     stations_str = "','".join(stations)
     # print(stations_str)
