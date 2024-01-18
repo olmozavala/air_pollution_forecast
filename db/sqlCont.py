@@ -4,7 +4,7 @@ import netrc
 
 def getPostgresConn():
     """ Makes the connection with the DB"""
-    print("Connecting to database....")
+    # print("Connecting to database....")
     secrets = netrc.netrc()
     login, account, passw = secrets.hosts['OWGIS']
 
@@ -16,8 +16,7 @@ def getPostgresConn():
     except:
         print("Failed to connect to database")
 
-    print(F"Connected to {host}")
-
+    # print(F"Connected to {host}")
     return conn
 
 def clearTable(conn,table):

@@ -10,8 +10,8 @@ output_folder = '/ZION/AirPollutionData/Data'  # Where are the CVS files saved
 def getPreprocWRFParams():
     make_csv_config= {
         # PreprocParams.variables: ['U10', 'V10', 'RAINC', 'T2', 'TH2', 'RAINNC', 'PBLH', 'SWDOWN', 'GLW'],
-        PreprocParams.variables: ['U10', 'V10', 'RAINC', 'T2', 'RAINNC', 'SWDOWN', 'GLW'],
-        # Donde se guardan los csv
+        # PreprocParams.variables: ['U10', 'V10', 'RAINC', 'T2', 'RAINNC', 'SWDOWN', 'GLW','PH'], # Donde se guardan los csv
+        PreprocParams.variables: ['U10', 'V10', 'RAINC', 'T2', 'RAINNC', 'SWDOWN', 'GLW'], # Donde se guardan los csv
         # PreprocParams.input_folder_new: '/data/UNAM/Air_Pollution_Forecast/Data/WRF_Kraken/new_model',
         # PreprocParams.input_folder_old: '/data/UNAM/Air_Pollution_Forecast/Data/WRF_Kraken/old_model_v4',
         PreprocParams.input_folder_new: '/ServerData/WRF_Kraken',  # Paths at ZION
@@ -20,13 +20,16 @@ def getPreprocWRFParams():
         PreprocParams.output_imgs_folder: join(output_folder, 'imgs'), # Path to save temporal images (netcdfs preprocessing)
         PreprocParams.display_imgs: True,  # Boolean that indicates if we want to save the images
         # How to subsample the data
-        PreprocParams.resampled_output_sizes: [{'rows': 1, 'cols': 1},
-                                                 {'rows': 2, 'cols': 2},
-                                                 {'rows': 4, 'cols': 4},
-                                                 {'rows': 8, 'cols': 8},
-                                                 {'rows': 16, 'cols': 16}],
+        PreprocParams.resampled_output_sizes: [
+                                                # {'rows': 1, 'cols': 1},
+                                                # {'rows': 2, 'cols': 2},
+                                                {'rows': 4, 'cols': 4},
+                                                {'rows': 8, 'cols': 8},
+                                                {'rows': 16, 'cols': 16}
+                                                ],
         # How to crop the data [minlat, maxlat, minlon, maxlon]
-        PreprocParams.bbox: [19.05,20,-99.46, -98.7],
+        # PreprocParams.bbox: [19.05,20,-99.46, -98.7],
+        PreprocParams.bbox: [18.75, 20,-99.75, -98.5],
         PreprocParams.times: range(72),  # What is this?
         }
 

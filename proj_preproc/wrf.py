@@ -6,7 +6,7 @@ from proj_preproc.utils import getEvenIndexForSplit
 def crop_variables_xr(xr_ds, variables, bbox, times):
     output_xr_ds = xr.Dataset()
     for cur_var_name in variables:
-        print(F"\t\t {cur_var_name}")
+        # print(F"\t\t {cur_var_name}")
         cur_var = xr_ds[cur_var_name]
         cur_coords_names = list(cur_var.coords.keys())
         # TODO the order here is hardcoded, need to verify it always work for WRF
@@ -25,7 +25,7 @@ def crop_variables_xr(xr_ds, variables, bbox, times):
 def crop_variables_xr_cca_reanalisis(xr_ds, variables, bbox, times, LAT, LON):
     output_xr_ds = xr.Dataset()
     for cur_var_name in variables:
-        print(F"\t\t {cur_var_name}")
+        # print(F"\t\t {cur_var_name}")
         cur_var = xr_ds[cur_var_name]
         minlat, maxlat, minlon, maxlon = bbox
         croppedVar, newLat, newLon = crop_variable_np(cur_var, LON=LON, LAT=LAT, minlat=minlat, maxlat=maxlat,
@@ -136,4 +136,4 @@ def subsampleData(xr_ds, variables, num_rows, num_cols):
         #                                   title=F'Shape: {num_rows}x{num_cols}',
         #                                   file_name_prefix='AfterCroppingAndSubsampling')
 
-    return output_xr_ds
+    return output_xr_ds, newlat, newlon

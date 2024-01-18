@@ -11,6 +11,7 @@ import os
 from sklearn.metrics import *
 from proj_prediction.metrics import restricted_mse
 import numpy as np
+from proj_ai.lossfunctions import custom_mse
 
 from ai_common.constants.AI_params import ModelParams, AiModels, TrainingParams, ClassificationParams, VisualizationResultsParams, NormParams
 
@@ -37,7 +38,7 @@ _debug = False
 
 # =================================== TRAINING ===================================
 # ----------------------------- UM -----------------------------------
-_run_name = F'2023'  # Name of the model, for training and classification
+_run_name = F'TestOZ'  # Name of the model, for training and classification
 
 def append_model_params(cur_config):
     model_config = {
@@ -45,7 +46,7 @@ def append_model_params(cur_config):
         ModelParams.DROPOUT: True,
         ModelParams.BATCH_NORMALIZATION: True,
         # ModelParams.CELLS_PER_HIDDEN_LAYER: [300, 300, 300],
-        ModelParams.CELLS_PER_HIDDEN_LAYER: [300, 300, 200, 100, 100, 100, 100, 100, 100],
+        ModelParams.CELLS_PER_HIDDEN_LAYER: [300, 300, 300, 300],
         ModelParams.NUMBER_OF_OUTPUT_CLASSES: 1,
         ModelParams.ACTIVATION_HIDDEN_LAYERS: 'relu',
         ModelParams.ACTIVATION_OUTPUT_LAYERS: None
@@ -66,7 +67,8 @@ def getMergeParams():
         LocalTrainingParams.tot_num_quadrants: grid_size * grid_size,
         LocalTrainingParams.num_hours_in_netcdf: 24, # 72 (forecast)
         MergeFilesParams.output_folder: join(data_folder, constants.merge_output_folder.value),
-        MergeFilesParams.years: range(2010,2023)
+        MergeFilesParams.years: range(2010,2024)
+        # MergeFilesParams.years: range(2017,2018)
     }
 
     return cur_config
@@ -78,12 +80,12 @@ def getTrainingParams():
         # TrainingParams.output_folder: F"{join(data_folder, constants.training_output_folder.value)}",
         TrainingParams.output_folder: F"{join(data_folder, 'TrainingTestsOZ')}",
         TrainingParams.validation_percentage: .1,
-        TrainingParams.test_percentage: .1, # If training with 10 years, we test on the last one
+        TrainingParams.test_percentage: 0, # If training with 10 years, we test on the last one
         TrainingParams.evaluation_metrics: [metrics.mean_squared_error],  # Metrics to show in tensor flow in the training
         TrainingParams.loss_function: losses.mean_squared_error,  # Loss function to use for the learning
-        # TrainingParams.loss_function: metrics.mean_squared_error,  # Loss function to use for the learning
-        TrainingParams.optimizer: SGD(lr=.001),  # Default values lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=None,
-        TrainingParams.batch_size: 1000,
+        # TrainingParams.loss_function: custom_mse,  # Loss function to use for the learning
+        TrainingParams.optimizer: Adam(learning_rate=.0001),  # Default values learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=None,
+        TrainingParams.batch_size: 5000,
         TrainingParams.epochs: 5000,
         TrainingParams.config_name: _run_name,
         TrainingParams.data_augmentation: False,
