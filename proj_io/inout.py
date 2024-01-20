@@ -6,6 +6,15 @@ import pandas as pd
 import os
 import re
 
+def create_folder(output_folder):
+    """
+    It creates a folder only if it doesn't exist
+    Args:
+        output_folder:
+    """
+    if not(os.path.exists(output_folder)):
+        os.makedirs(output_folder)
+
 def read_wrf_old_files_names(input_folder, start_date, end_date):
     """
     Function to save the address of the netCDF in a txt file
