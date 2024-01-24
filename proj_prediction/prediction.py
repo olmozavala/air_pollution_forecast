@@ -145,6 +145,22 @@ def preprocess_data(cur_column, y_pred_descaled_df, y_true_df):
 
     return y_true, y_prediction
 
+def index_of_agreement(y_true, y_prediction):
+    # Calcular el promedio de los valores observados
+    o_bar = np.mean(y_true)
+    
+    # Calcular el numerador y denominador de la fórmula del Índice de Acuerdo
+    numerator = np.sum((y_true - y_prediction)**2)
+    denominator = np.sum((np.abs(y_prediction - o_bar) + np.abs(y_true - o_bar))**2)
+    
+    # Asegurar que el denominador no sea cero para evitar la división por cero
+    if denominator == 0:
+        return np.nan  # o puedes retornar otro valor que consideres apropiado en este caso
+    
+    # Calcular y retornar el Índice de Acuerdo
+    d = 1 - (numerator / denominator)
+    return d
+
 def calculate_metrics(y_true, y_prediction):
     # Calcular las métricas
     mae = mean_absolute_error(y_true, y_prediction)
@@ -152,8 +168,20 @@ def calculate_metrics(y_true, y_prediction):
     mse = mean_squared_error(y_true, y_prediction)
     rmse = np.sqrt(mse)
     r2 = r2_score(y_true, y_prediction)
+    d = index_of_agreement(y_true, y_prediction)  # Calcular el Índice de Acuerdo
 
-    return mae, mape, mse, rmse, r2
+    return mae, mape, mse, rmse, r2, d  # Retornar el Índice de Acuerdo junto con las demás métricas
+
+
+""" def calculate_metrics(y_true, y_prediction):
+    # Calcular las métricas
+    mae = mean_absolute_error(y_true, y_prediction)
+    mape = mean_absolute_percentage_error(y_true, y_prediction)
+    mse = mean_squared_error(y_true, y_prediction)
+    rmse = np.sqrt(mse)
+    r2 = r2_score(y_true, y_prediction)
+
+    return mae, mape, mse, rmse, r2 """
 
 def analyze_column(cur_column, y_pred_descaled_df, y_true_df, test_year=None, output_results_folder_img='./', generate_plot=True):
     y_true, y_prediction = preprocess_data(cur_column, y_pred_descaled_df, y_true_df)
@@ -163,12 +191,12 @@ def analyze_column(cur_column, y_pred_descaled_df, y_true_df, test_year=None, ou
     df = pd.DataFrame(data)
     df.dropna(inplace=True)
     corr_coef = df["x"].corr(df["y"])
-    print(f"Índice de correlación:                     {corr_coef:.4f}")
+    print(f"Correlation index:                     {corr_coef:.4f}")
 
-    mae, mape, mse, rmse, r2 = calculate_metrics(y_true, y_prediction)
+    mae, mape, mse, rmse, r2, d = calculate_metrics(y_true, y_prediction)
 
     if generate_plot:
-        analyze_column_plot(cur_column, y_true, y_prediction, corr_coef, mae, mape, rmse, test_year, output_results_folder_img)
+        analyze_column_plot(cur_column, y_true, y_prediction, corr_coef, mae, mape, rmse,d, test_year, output_results_folder_img)
 
     # Retornar las métricas en un diccionario
     results = {
@@ -178,11 +206,13 @@ def analyze_column(cur_column, y_pred_descaled_df, y_true_df, test_year=None, ou
         "MAPE": mape,
         "MSE": mse,
         "RMSE": rmse,
-        "R2": r2
+        "R2": r2,
+        "Index of agreement":d
     }
     return results
 
-def analyze_column_plot(cur_column, y_true, y_prediction, corr_coef, mae, mape, rmse, test_year=None, output_results_folder_img='./'):
+
+def analyze_column_plot(cur_column, y_true, y_prediction, corr_coef, mae, mape, rmse, d, test_year=None, output_results_folder_img='./'):
     cur_station = cur_column.split('_')[-1]
     cur_pollutant = cur_column.split('_')[-2]
 
@@ -205,20 +235,20 @@ def analyze_column_plot(cur_column, y_true, y_prediction, corr_coef, mae, mape, 
     cb.set_label('Counts', fontsize=16)
 
     # Agregar la línea 1 a 1 y la línea de ajuste al gráfico
-    ax.plot(range(0,max_val), range(0,max_val), color='red', linewidth=4, alpha=0.7, label='Pronóstico Ideal')
+    ax.plot(range(0,max_val), range(0,max_val), color='red', linewidth=4, alpha=0.7, label='Ideal forecast')
     slope, intercept = np.polyfit(y_true, y_prediction, 1)
     #ax.plot(y_true, slope * y_true + intercept, color='blue', linewidth=4, alpha=0.7, label='Ajuste lineal')
 
     # Etiquetas de los ejes y título del gráfico
-    ax.set_xlabel(r'Nivel contaminante observado $O_3$ ppb', fontsize=18)
-    ax.set_ylabel(r'Nivel contaminante pronosticado $O_3$ ppb', fontsize=18)
-    plt.title(f"Estación: {cur_station} {test_year}\n", fontsize=16)
+    ax.set_xlabel(r'Pollutant observed level $O_3$ ppb', fontsize=18)
+    ax.set_ylabel(r'Pollutant forecasted level $O_3$ ppb', fontsize=18)
+    plt.title(f"Station: {cur_station} {test_year}\n", fontsize=16)
 
     # Añadir la ecuación de la recta al gráfico
-    eqn = f"""Estación: {cur_station} {test_year}
-Índice de correlación: {corr_coef:.4f}
+    eqn = f"""Station: {cur_station} {test_year}
+Correlation index: {corr_coef:.4f}
 RMSE: {rmse:.2f} ppb
-Pronosticado = {slope:.2f}*Observado + {intercept:.2f}
+Forecasted = {slope:.2f}*Observed + {intercept:.2f}
 MAE: {mae:.2f} ppb
 MAPE: {mape:.2e} 
 N: {len(y_true)}
@@ -232,6 +262,96 @@ N: {len(y_true)}
     plt.tight_layout()
     plt.savefig(join(output_results_folder_img,f'hexbin_{cur_column}.png'), dpi=300)  # Guardar la figura como PNG
     plt.show()
+
+
+
+# def calculate_metrics(y_true, y_prediction):
+#     # Calcular las métricas
+#     mae = mean_absolute_error(y_true, y_prediction)
+#     mape = mean_absolute_percentage_error(y_true, y_prediction)
+#     mse = mean_squared_error(y_true, y_prediction)
+#     rmse = np.sqrt(mse)
+#     r2 = r2_score(y_true, y_prediction)
+
+#     return mae, mape, mse, rmse, r2
+
+# def analyze_column(cur_column, y_pred_descaled_df, y_true_df, test_year=None, output_results_folder_img='./', generate_plot=True):
+#     y_true, y_prediction = preprocess_data(cur_column, y_pred_descaled_df, y_true_df)
+
+#     # Imprimir el índice de correlación
+#     data = {"x": y_prediction, "y": y_true.squeeze()}
+#     df = pd.DataFrame(data)
+#     df.dropna(inplace=True)
+#     corr_coef = df["x"].corr(df["y"])
+#     print(f"Índice de correlación:                     {corr_coef:.4f}")
+
+#     mae, mape, mse, rmse, r2 = calculate_metrics(y_true, y_prediction)
+
+#     if generate_plot:
+#         analyze_column_plot(cur_column, y_true, y_prediction, corr_coef, mae, mape, rmse, test_year, output_results_folder_img)
+
+#     # Retornar las métricas en un diccionario
+#     results = {
+#         "Columna": cur_column,
+#         "Índice de correlación": corr_coef,
+#         "MAE": mae,
+#         "MAPE": mape,
+#         "MSE": mse,
+#         "RMSE": rmse,
+#         "R2": r2
+#     }
+#     return results
+
+# def analyze_column_plot(cur_column, y_true, y_prediction, corr_coef, mae, mape, rmse, test_year=None, output_results_folder_img='./'):
+#     cur_station = cur_column.split('_')[-1]
+#     cur_pollutant = cur_column.split('_')[-2]
+
+#     test_str = f'{cur_station}_{cur_pollutant}_{test_year}'
+
+#     # Definir el tamaño de los bins de hexágono
+#     gridsize = 30
+
+#     # Graficar el hexbin usando Matplotlib
+#     sns.set()
+#     fig, ax = plt.subplots(figsize=(9, 7))
+
+#     # Establecer los ejes X e Y con el mismo rango de unidades
+#     max_val = 180 
+#     ax.set_xlim([0, max_val])
+#     ax.set_ylim([0, max_val])
+
+#     hb = ax.hexbin(y_true, y_prediction, gridsize=gridsize, cmap="YlGnBu", norm=LogNorm(), mincnt=1)
+#     cb = plt.colorbar(hb, ax=ax)
+#     cb.set_label('Counts', fontsize=16)
+
+#     # Agregar la línea 1 a 1 y la línea de ajuste al gráfico
+#     ax.plot(range(0,max_val), range(0,max_val), color='red', linewidth=4, alpha=0.7, label='Pronóstico Ideal')
+#     slope, intercept = np.polyfit(y_true, y_prediction, 1)
+#     #ax.plot(y_true, slope * y_true + intercept, color='blue', linewidth=4, alpha=0.7, label='Ajuste lineal')
+
+#     # Etiquetas de los ejes y título del gráfico
+#     ax.set_xlabel(r'Nivel contaminante observado $O_3$ ppb', fontsize=18)
+#     ax.set_ylabel(r'Nivel contaminante pronosticado $O_3$ ppb', fontsize=18)
+#     plt.title(f"Estación: {cur_station} {test_year}\n", fontsize=16)
+
+#     # Añadir la ecuación de la recta al gráfico
+#     eqn = f"""Estación: {cur_station} {test_year}
+# Índice de correlación: {corr_coef:.4f}
+# RMSE: {rmse:.2f} ppb
+# Pronosticado = {slope:.2f}*Observado + {intercept:.2f}
+# MAE: {mae:.2f} ppb
+# MAPE: {mape:.2e} 
+# N: {len(y_true)}
+# """
+#     ax.text(0.1, 0.75, eqn, transform=ax.transAxes, fontsize=12)
+
+#     # Agregar la leyenda
+#     ax.legend(loc=(0.75, 0.1))
+
+#     # Mostrar el gráfico
+#     plt.tight_layout()
+#     plt.savefig(join(output_results_folder_img,f'hexbin_{cur_column}.png'), dpi=300)  # Guardar la figura como PNG
+#     plt.show()
 
 
 import matplotlib.pyplot as plt
@@ -249,7 +369,6 @@ def truncate_colormap(cmap, minval=0.0, maxval=1.0, n=100):
 original_cmaps = ['Blues', 'Greens', 'Greys', 'Oranges', 'Reds', 'Purples']  # Lista de mapas de colores
 
 color_maps = [truncate_colormap(plt.get_cmap(cmap), 0.35, 1.0) for cmap in original_cmaps]  # Truncated color maps
-
 
 def analyze_multi_hour_plot(station, hours, y_pred_descaled_df, y_true_df, test_year=None, output_results_folder_img='./'):
     # Definir el tamaño de los bins de hexágono
@@ -272,7 +391,7 @@ def analyze_multi_hour_plot(station, hours, y_pred_descaled_df, y_true_df, test_
         cur_column = f'plus_{hour:02}_cont_otres_{station}'
 
         y_true, y_pred = preprocess_data(cur_column, y_pred_descaled_df, y_true_df)
-        mae, mape, mse, rmse, r2 = calculate_metrics(y_true, y_pred)
+        mae, mape, mse, rmse, r2, d = calculate_metrics(y_true, y_pred)
 
         data = {"x": y_pred, "y": y_true.squeeze()}
         df = pd.DataFrame(data)
@@ -313,6 +432,69 @@ def analyze_multi_hour_plot(station, hours, y_pred_descaled_df, y_true_df, test_
     plt.tight_layout()
     plt.savefig(join(output_results_folder_img,f'multihour_hexbin_{station}.png'), dpi=300)  # Guardar la figura como PNG
     plt.show()
+
+# def analyze_multi_hour_plot(station, hours, y_pred_descaled_df, y_true_df, test_year=None, output_results_folder_img='./'):
+#     # Definir el tamaño de los bins de hexágono
+#     gridsize = 30
+
+#     # Graficar el hexbin usando Matplotlib
+#     sns.set()
+#     fig, ax = plt.subplots(figsize=(9, 7))
+
+#     # Establecer los ejes X e Y con el mismo rango de unidades
+#     max_val = 180 
+#     ax.set_xlim([0, max_val])
+#     ax.set_ylim([0, max_val])
+
+#     # Definir la paleta de colores
+#     #color_maps = ['Reds', 'Blues', 'Greens', 'Oranges', 'Purples']  # Lista de mapas de colores
+#     #color_maps = ['Blues', 'Greens', 'Oranges', 'Reds', 'Purples']  # Lista de mapas de colores
+
+#     for i, hour in enumerate(hours):
+#         cur_column = f'plus_{hour:02}_cont_otres_{station}'
+
+#         y_true, y_pred = preprocess_data(cur_column, y_pred_descaled_df, y_true_df)
+#         mae, mape, mse, rmse, r2 = calculate_metrics(y_true, y_pred)
+
+#         data = {"x": y_pred, "y": y_true.squeeze()}
+#         df = pd.DataFrame(data)
+#         df.dropna(inplace=True)
+#         corr_coef = df["x"].corr(df["y"])
+
+#         hb = ax.hexbin(y_true, y_pred, gridsize=gridsize, cmap=color_maps[i], norm=LogNorm(), mincnt=1, alpha=0.6)
+#         #cb = plt.colorbar(hb, ax=ax)
+#         #cb.set_label('Counts', fontsize=16)
+#         # Linear fit
+#         #ax.plot(range(0,max_val), range(0,max_val), color='red', linewidth=4, alpha=0.7, label='Pronóstico Ideal')
+#         slope, intercept = np.polyfit(y_true, y_pred, 1)
+
+#         # Añadir la ecuación de la recta al gráfico
+#         eqn = f"""Estación: {station} {test_year}
+#     Hora: {hour}
+#     Índice de correlación: {corr_coef:.4f}
+#     RMSE: {rmse:.2f} ppb
+#     Pronosticado = {slope:.2f}*Observado + {intercept:.2f}
+#     MAE: {mae:.2f} ppb
+#     MAPE: {mape:.2e} 
+#     N: {len(y_true)}
+#     """
+#         #ax.text(0.1, 0.75, eqn, transform=ax.transAxes, fontsize=12)
+
+#     # Agregar la línea 1 a 1 y la línea de ajuste al gráfico
+#     ax.plot(range(0,max_val), range(0,max_val), color='red', linewidth=4, alpha=0.7, label='Pronóstico Ideal')
+
+#     # Agregar la leyenda
+#     ax.legend(loc=(0.75, 0.1))
+
+#     # Etiquetas de los ejes y título del gráfico
+#     ax.set_xlabel(r'Nivel contaminante observado $O_3$ ppb', fontsize=18)
+#     ax.set_ylabel(r'Nivel contaminante pronosticado $O_3$ ppb', fontsize=18)
+#     plt.title(f"Estación: {station} {test_year}\n", fontsize=16)
+
+#     # Mostrar el gráfico
+#     plt.tight_layout()
+#     plt.savefig(join(output_results_folder_img,f'multihour_hexbin_{station}.png'), dpi=300)  # Guardar la figura como PNG
+#     plt.show()
 
 
 # scaler compiler
