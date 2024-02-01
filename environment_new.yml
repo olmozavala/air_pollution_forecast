@@ -1,0 +1,36 @@
+name: pronosticoaire
+channels:
+  - conda-forge
+dependencies:
+  - python
+  - pip
+  - tensorflow-gpu
+  - tensorboard
+  - pandas
+  - scipy
+  - scikit-image
+  - scikit-learn
+  - matplotlib
+  - cartopy
+  - geojson
+  - datashader
+  - cmocean
+  - colorcet
+  - pydot
+  - xarray
+  - dask
+  - netcdf4
+  - pytest
+  - jupyterlab
+  - ipykernel
+  - psycopg2
+  - geopandas
+  - dash
+  - dash-bootstrap-components
+  - seaborn
+  - ca-certificates
+  - certifi
+  - openssl
+  - yapf
+  - ipywidgets
+
