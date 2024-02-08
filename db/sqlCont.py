@@ -6,9 +6,11 @@ def getPostgresConn():
     """ Makes the connection with the DB"""
     # print("Connecting to database....")
     secrets = netrc.netrc()
-    login, account, passw = secrets.hosts['OWGIS']
-
+    login, account, passw = secrets.hosts['OWGIS-OPERATIVO']
+    print(login)
     host ='132.248.8.238'
+    # login, account, passw = secrets.hosts['OWGIS']
+
     # host ='localhost'
     #For Posgresql only
     try:
