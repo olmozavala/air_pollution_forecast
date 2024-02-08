@@ -11,10 +11,10 @@ def getPreprocWRFParams():
     make_csv_config= {
         # PreprocParams.variables: ['U10', 'V10', 'RAINC', 'T2', 'TH2', 'RAINNC', 'PBLH', 'SWDOWN', 'GLW'],
         # PreprocParams.variables: ['U10', 'V10', 'RAINC', 'T2', 'RAINNC', 'SWDOWN', 'GLW','PH'], # Donde se guardan los csv
-        PreprocParams.variables: ['U10', 'V10', 'RAINC', 'T2', 'RAINNC', 'SWDOWN', 'GLW'], # Donde se guardan los csv
+        PreprocParams.variables: ['U10', 'V10', 'RAINC', 'T2', 'RAINNC', 'SWDOWN', 'GLW','PH'], # Donde se guardan los csv
         # PreprocParams.input_folder_new: '/data/UNAM/Air_Pollution_Forecast/Data/WRF_Kraken/new_model',
         # PreprocParams.input_folder_old: '/data/UNAM/Air_Pollution_Forecast/Data/WRF_Kraken/old_model_v4',
-        PreprocParams.input_folder_new: '/ServerData/WRF_Kraken',  # Paths at ZION
+        PreprocParams.input_folder_new: '/ServerData/WRF_2017_Kraken',  # Paths at ZION
         PreprocParams.input_folder_old: '/ServerData/CHACMOOL/Reanalisis/RESPALDO_V4/',  # Paths at ZION
         PreprocParams.output_folder: join(output_folder, constants.wrf_output_folder.value, constants.wrf_each_quadrant_name.value),
         PreprocParams.output_imgs_folder: join(output_folder, 'imgs'), # Path to save temporal images (netcdfs preprocessing)
@@ -66,4 +66,3 @@ def getPreprocDBParams():
     }
 
     return make_csv_config
-

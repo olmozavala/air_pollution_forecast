@@ -1,5 +1,6 @@
 # %%
 import sys
+import numpy as np
 sys.path.append('/home/olmozavala/air_pollution_forecast/eoas_pyutils')
 
 from conf.MakeWRF_and_DB_CSV_UserConfiguration import getPreprocWRFParams
@@ -30,7 +31,34 @@ def process_files(user_config, all_path_names, all_file_names, all_dates, all_fi
     for file_idx in range(len(all_path_names)):
         print(F"================ {all_file_names[file_idx]} ================================ ")
         # Read file as xarray
-        cur_xr_ds = xr.open_dataset(all_path_names[file_idx], decode_times=False)
+        if mode == wrfFileType.old:
+            # Verify that variable names contais PH
+            if 'PH' in variable_names:
+                # Generate a new set of path names replacing c1h to c3h
+                all_path_names_3h = [x.replace('c1h', 'c3h') for x in all_path_names]
+                cur_xr_ds = xr.open_dataset(all_path_names[file_idx], decode_times=False)
+                cur_xr_ds_3h = xr.open_dataset(all_path_names_3h[file_idx], decode_times=False)
+                # Read only PH from cur_xr_ds_3h
+                cur_xr_ds_PH = cur_xr_ds_3h['PH']
+                # Manually interpolate the time dimension
+                interp_times = [np.round(x/3,4) for x in range(24)]
+                cur_xr_ds_PH = cur_xr_ds_PH.interp(Time=interp_times)
+                cur_xr_ds['PH'] = cur_xr_ds_PH
+        else:
+            cur_xr_ds = xr.open_dataset(all_path_names[file_idx], decode_times=False)
+
+        if 'PH' in variable_names:
+            # TODO Hardcoded level 10 selectoin for PH
+            # Erika Jimenez dijo que en el pronóstico viejo era entre 32 y 34 (o sea 33), creo questas son del nuevo. Pero mañana te paso los detalles.
+            ph_level = 33
+            cur_xr_ds['PH'] = cur_xr_ds['PH'].sel(bottom_top_stag=ph_level)
+            # Assign the modified variable back to the same variable in the dataset
+            # xarray_ds['data_var'] = data_var_at_depth
+            # Plot PH
+            # import matplotlib.pyplot as plt
+            # plt.imshow(cur_xr_ds['PH'].values[0,:,:])
+            # plt.savefig('PHNew.png')
+
         # Crops the desired variable_names
         try:
             if mode == wrfFileType.new:
@@ -97,7 +125,7 @@ def runParallel(year):
     start_date = F'{year}-01-01'
     end_date = F'{year + 1}-01-01'
 
-    if year < 2018: # We use the 'old' model
+    if year < 2017: # We use the 'old' model
         print(f"Working with old model files years {start_date}-{end_date}")
         all_dates_old, all_file_names_old, all_files_coords_old, all_path_names_old = read_wrf_old_files_names(
                         input_folder_old, start_date, end_date)
@@ -116,10 +144,10 @@ if __name__== '__main__':
     input_folder_old = user_config[PreprocParams.input_folder_old]
 
     # The max range is from 1980 to present
-    start_year = 2017
+    start_year = 2010
     end_year = 2023
 
     # Run this process in parallel splitting separating by years
-    NUMBER_PROC = 16
+    NUMBER_PROC = 10
     p = Pool(NUMBER_PROC)
     p.map(runParallel, range(start_year, end_year))
