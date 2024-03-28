@@ -11,7 +11,8 @@ def getPreprocWRFParams():
     make_csv_config= {
         # PreprocParams.variables: ['U10', 'V10', 'RAINC', 'T2', 'TH2', 'RAINNC', 'PBLH', 'SWDOWN', 'GLW'],
         # PreprocParams.variables: ['U10', 'V10', 'RAINC', 'T2', 'RAINNC', 'SWDOWN', 'GLW','PH'], # Donde se guardan los csv
-        PreprocParams.variables: ['U10', 'V10', 'RAINC', 'T2', 'RAINNC', 'SWDOWN', 'GLW'], # Donde se guardan los csv
+        # PreprocParams.variables: ['U10', 'V10', 'RAINC', 'T2', 'RAINNC', 'SWDOWN', 'GLW'], # Donde se guardan los csv
+        PreprocParams.variables: ['PH'], # Donde se guardan los csv
         # PreprocParams.input_folder_new: '/data/UNAM/Air_Pollution_Forecast/Data/WRF_Kraken/new_model',
         # PreprocParams.input_folder_old: '/data/UNAM/Air_Pollution_Forecast/Data/WRF_Kraken/old_model_v4',
         PreprocParams.input_folder_new: '/ServerData/WRF_Kraken',  # Paths at ZION
