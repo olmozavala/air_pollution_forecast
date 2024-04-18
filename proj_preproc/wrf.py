@@ -4,13 +4,24 @@ from proj_preproc.utils import getEvenIndexForSplit
 
 
 def crop_variables_xr(xr_ds, variables, bbox, times):
+    """
+    Crop variables in an xarray Dataset based on a given bounding box and time range.
+
+    Parameters:
+        xr_ds (xr.Dataset): The input xarray Dataset containing the variables to be cropped.
+        variables (list): A list of variable names to be cropped.
+        bbox (tuple): A tuple containing the bounding box coordinates in the order (minlat, maxlat, minlon, maxlon).
+        times (list): A list of time values to be cropped.
+
+    Returns:
+        xr.Dataset: The cropped xarray Dataset containing the specified variables, cropped to the given bounding box and time range.
+        newLat (ndarray): The latitude values of the cropped variables.
+        newLon (ndarray): The longitude values of the cropped variables.
+    """
     output_xr_ds = xr.Dataset()
     for cur_var_name in variables:
-        # print(F"\t\t {cur_var_name}")
         cur_var = xr_ds[cur_var_name]
         cur_coords_names = list(cur_var.coords.keys())
-        # TODO the order here is hardcoded, need to verify it always work for WRF
-        # Also, the lat and lon is obtained everytime, assuming it may use XLAT_V so not always the same
         lat = cur_var.coords[cur_coords_names[0]].values
         lon = cur_var.coords[cur_coords_names[1]].values
 
@@ -37,32 +48,31 @@ def crop_variables_xr_cca_reanalisis(xr_ds, variables, bbox, times, LAT, LON):
 
 def crop_variable_np(np_data, LON, LAT, minlat, maxlat, minlon, maxlon, times):
     """
-    Crops a numpy array 'np_data' with the desired bbox
-    :param np_data:
-    :param LON:
-    :param LAT:
-    :param LONsize:
-    :param LATsize:
-    :param minlat:
-    :param maxlat:
-    :param minlon:
-    :param maxlon:
-    :return:
-    """
+    Crop a variable from a NumPy array based on latitude and longitude bounds.
 
+    Args:
+        np_data (ndarray): NumPy array containing the variable data.
+        LON (ndarray): NumPy array containing the longitude values.
+        LAT (ndarray): NumPy array containing the latitude values.
+        minlat (float): Minimum latitude value for cropping.
+        maxlat (float): Maximum latitude value for cropping.
+        minlon (float): Minimum longitude value for cropping.
+        maxlon (float): Maximum longitude value for cropping.
+        times (int or slice): Index or slice object specifying the time dimension to crop.
+
+    Returns:
+        tuple: A tuple containing the cropped variable data, the new latitude array, and the new longitude array.
+
+    Raises:
+        None
+
+    """
     dims = len(LAT.shape)
     if dims == 1:
         minLatIdx = np.argmax(LAT >= minlat)
         maxLatIdx = np.argmax(LAT >= maxlat)-1
         minLonIdx = np.argmax(LON >= minlon)
         maxLonIdx = np.argmax(LON >= maxlon)-1
-
-        # Just for debugging
-        # minLatVal = LAT[minLatIdx]
-        # maxLatVal = LAT[maxLatIdx]
-        # minLonVal = LON[minLonIdx]
-        # maxLonVal = LON[maxLonIdx]
-        # Just for debugging end
 
         newLAT = LAT[minLatIdx:maxLatIdx]
         newLon = LON[minLonIdx:maxLonIdx]

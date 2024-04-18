@@ -62,7 +62,7 @@ config = get_makeprediction_config()
 wrf_config = getPreprocWRFParams()
 meteo_var_names = wrf_config[PreprocParams.variables]    
 bbox = wrf_config[PreprocParams.bbox]
-times = wrf_config[PreprocParams.times]
+wrf_times_to_load = wrf_config[PreprocParams.times]
 
 # Cargar el CSV con los nombres de las columnas 
 column_names_df = pd.read_csv(csv_xcols_path, header=None)
@@ -159,22 +159,30 @@ def operativo(forecast_time):
         # Move outside here
         wrf_file_name = f"wrfout_d01_{forecast_time.strftime('%Y-%m-%d')}_00.nc"
         wrf_file = join(join(wrf_input_folder,str(forecast_time.year), cur_month), wrf_file_name)
-        print(f"Working with wrf file: {wrf_file}")
-        if not(os.path.exists(wrf_file)):
-            raise Exception(f"File {wrf_file} does not exist")
+        days_before_wrf = 0
+        # If the file does not exist, we will try to find the closest previous day with data from WRF
+        wrf_times_to_load = wrf_config[PreprocParams.times]
+        while not(os.path.exists(wrf_file)):
+            print(f"ERROR File {wrf_file} does not exist")
 
+            days_before_wrf += 1
+            wrf_run_day = forecast_time - timedelta(days=days_before_wrf)
+            wrf_file_name = f"wrfout_d01_{wrf_run_day.strftime('%Y-%m-%d')}_00.nc"
+            wrf_file = join(join(wrf_input_folder,str(forecast_time.year), cur_month), wrf_file_name)
+            wrf_times_to_load = np.array(list(wrf_times_to_load)) + 24 # Modify reading 24 'shifted' hours. 
+        print(f"Working with wrf file: {wrf_file}")
 
         cur_xr_ds = xr.open_dataset(wrf_file, decode_times=False)
-        cropped_xr_ds, newLAT, newLon = crop_variables_xr(cur_xr_ds, meteo_var_names, bbox, times=times)
+        cropped_xr_ds, newLAT, newLon = crop_variables_xr(cur_xr_ds, meteo_var_names, bbox, times=wrf_times_to_load)
 
 # %%
         # %% Subsampling the data
         subsampled_xr_ds, coarselat, coarselon = subsampleData(cropped_xr_ds, meteo_var_names, grid_size_wrf, grid_size_wrf)
         wrf_time_format = '%Y-%m-%d_%H:%M:%S'
-        wrf_dates = np.array([datetime.strptime(x.decode('utf-8'), wrf_time_format) for x in cur_xr_ds['Times'].values])
+        wrf_dates = np.array([datetime.strptime(x.decode('utf-8'), wrf_time_format) for x in cur_xr_ds['Times'].values[wrf_times_to_load]]) # Here we generate new times from the original nc file dates
         # print(f"Original forecast time: {forecast_time} \n WRF dates in file: {wrf_dates}")
         first_time_idx = np.where(wrf_dates >= start_datetime_wrf)[0][0]
-        print(f"Assuming current time from wrf is {wrf_dates[first_time_idx]} (Original forecast time: {forecast_time} )")
+        print(f"Current time from wrf is {wrf_dates[first_time_idx]} (Original forecast time: {forecast_time} )")
         meteo_cols = {}
         for cur_var_name in meteo_var_names:
             for cur_hour, wrf_hour_index in enumerate(range(first_time_idx, first_time_idx+forecasted_hours)):
@@ -195,6 +203,7 @@ def operativo(forecast_time):
                     gl.xlabel_style = {'size': 10, 'weight':'bold'}
                     # plt.colorbar(im, location='right', shrink=.6, pad=.12)
                     plt.show()
+                    plt.savefig("temp.jpg")
 
 
         temp_df = DataFrame(index=[forecast_time], data=meteo_cols)
