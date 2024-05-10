@@ -26,16 +26,14 @@
 # average_meteo(start_date, hours, field (temp, u, v, etc)) → arreglo
 # con [promedios (size hours)]
 
-# %%
+# %% pollutant_by_stations
 import sys
 import os
 
-# Obtiene el directorio donde se encuentra el script actualmente ejecutándose
-script_dir = os.path.dirname(__file__)  # Esto devuelve el directorio de 'your_script.py'
+script_dir = os.path.dirname(__file__)
 
 # Añade el directorio raíz del proyecto al path de Python
-# Suponiendo que el directorio raíz está un nivel arriba del directorio 'data_exploration'
-project_root = os.path.join(script_dir, '..')  # 'os.path.join' construye una ruta subiendo un nivel
+project_root = os.path.join(script_dir, '..')  # 'os.path.join' ruta subiendo un nivel
 sys.path.append(project_root)
 
 import pandas as pd
@@ -74,16 +72,15 @@ def pollutant_by_stations(start_date: str, end_date: str, stations: list, pollut
 
 
 
-# # Example usage
-# if __name__ == "__main__":
-#     start_date = "2023-12-01 00:00"
-#     end_date = "2023-12-14 00:00"
-#     stations = ['UAX', 'MER', 'XAL']
-#     pollutant = 'cont_otres'
+# Example usage
+start_date = "2023-12-01 00:00"
+end_date = "2023-12-14 00:00"
+stations = ['UAX', 'MER', 'XAL']
+pollutant = 'cont_otres'
 
-#     data = pollutant_by_stations(start_date, end_date, stations, pollutant)
-#     print(data)
-# %%
+data = pollutant_by_stations(start_date, end_date, stations, pollutant)
+print(data)
+# %% daily_max_pollutant_by_stations
 
 import pandas as pd
 
@@ -121,70 +118,17 @@ def daily_max_pollutant_by_stations(start_date: str, end_date: str, stations: li
 
     return results_df
 
-# # Example usage
-# if __name__ == "__main__":
-#     start_date = "2023-12-01 00:00"
-#     end_date = "2023-12-14 00:00"
-#     stations = ['UAX', 'MER', 'XAL']
-#     pollutant = 'cont_otres'
+# Example usage
 
-#     data = daily_max_pollutant_by_stations(start_date, end_date, stations, pollutant)
-#     print(data)
+start_date = "2022-12-01 00:00"
+end_date = "2023-12-14 00:00"
+stations = ['UAX', 'MER', 'XAL']
+pollutant = 'cont_otres'
 
+data = daily_max_pollutant_by_stations(start_date, end_date, stations, pollutant)
+print(data)
 
-
-# %%
-# import pandas as pd
-
-# def date_above_threshold(start_date: str, end_date: str, stations: list, pollutant: str, threshold: float) -> pd.DataFrame:
-#     """
-#     Get entries where pollution data exceed a specified threshold for specific stations and pollutant within a date range.
-
-#     Parameters:
-#         start_date (str): The start date in the format "YYYY-MM-DD HH:MM".
-#         end_date (str): The end date in the format "YYYY-MM-DD HH:MM".
-#         stations (list): A list of station codes.
-#         pollutant (str): The specific pollutant to query, e.g., "cont_otres" or "cont_pmdoscinco".
-#         threshold (float): The threshold value above which to identify entries.
-
-#     Returns:
-#         pd.DataFrame: A DataFrame where each row represents an entry that exceeded the threshold,
-#                        including the timestamp, the station code, and the value.
-#     """
-#     # First, get the complete data set using the previously defined function
-#     pollution_data = pollutant_by_stations(start_date, end_date, stations, pollutant)
-
-#     # Prepare a DataFrame to collect the results
-#     results = []
-
-#     # Filter entries that exceed the threshold for each station
-#     for station in stations:
-#         if station in pollution_data.columns:  # Check if the station has data
-#             # Filter data where pollution exceeds the threshold
-#             filtered_data = pollution_data[pollution_data[station] > threshold]
-#             for timestamp, value in filtered_data[station].items():
-#                 results.append({'date': timestamp, 'station': station, 'value': value})
-
-#     # Convert list of dictionaries to DataFrame
-#     results_df = pd.DataFrame(results)
-#     return results_df
-
-# # Example usage
-
-# start_date = "2022-12-01 00:00"
-# end_date = "2023-12-14 00:00"
-# stations = ['UAX', 'MER', 'XAL']
-# pollutant = 'cont_otres'
-# threshold = 90
-
-# data = date_above_threshold(start_date, end_date, stations, pollutant, threshold)
-# print(data)
-
-# %% Alternativa a  función date_above_threshold...
-
-
-# Supongamos que la función pollutant_by_stations ya ha sido definida y está disponible.
-
+# %% dates_above_threshold()
 def dates_above_threshold(df, threshold=90.0):
     """
     Replace values below a specified threshold with NaN in a DataFrame.
@@ -203,74 +147,23 @@ def dates_above_threshold(df, threshold=90.0):
     return df_cleaned
 
 # Ejemplo de uso
-start_date = "2010-12-01 00:00"
-end_date = "2023-12-14 00:00"
-stations = ['UAX', 'MER', 'XAL']
+start_date = "2024-05-9 00:00"
+end_date = "2024-05-14 00:00"
+#stations = ['UAX', 'MER', 'XAL']
+all_stations = [
+    "UIZ", "AJU", "ATI", "CUA", "SFE", "SAG", "CUT", "PED", "TAH", "GAM",
+    "IZT", "CCA", "HGM", "LPR", "MGH", "CAM", "FAC", "TLA", "MER", "XAL",
+    "LLA", "TLI", "UAX", "BJU", "MPA", "MON", "NEZ", "INN", "AJM", "VIF"
+]
 pollutant = 'cont_otres'
 
-df = pollutant_by_stations(start_date, end_date, stations, pollutant)
-df_above_th = dates_above_threshold(df, 95.0)
+df = pollutant_by_stations(start_date, end_date, all_stations, pollutant)
+df_above_th = dates_above_threshold(df, 145.0)
 
 print(df_above_th)
 
 
-# %%
-
-import xarray as xr
-import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
-
-def average_meteo(start_date, hours, field):
-    """
-    Calculate the hourly average for a specified meteorological field from a starting date over a specified number of hours.
-
-    Parameters:
-        start_date (str): The starting date and time in the format "YYYY-MM-DD HH:MM".
-        hours (int): The number of hours to average over from the start date.
-        field (str): The meteorological field to average (e.g., 'temp', 'u', 'v').
-
-    Returns:
-        pd.DataFrame: A DataFrame with the average values of the specified field over the given number of hours.
-    """
-    # Path to the WRF data file, adjust as necessary
-    wrf_file_path = "/ServerData/WRF_2017_Kraken/wrfout_d01_2017-01-01_00.nc"  # Example file path
-
-    # Load the data using xarray
-    ds = xr.open_dataset(wrf_file_path)
-
-    # Convert start date string to datetime object
-    start_datetime = datetime.strptime(start_date, "%Y-%m-%d %H:%M")
-
-    # Calculate the end datetime
-    end_datetime = start_datetime + timedelta(hours=hours)
-
-    # Select the data for the given field and time range
-    data = ds[field].sel(time=slice(start_datetime, end_datetime))
-
-    # Calculate the hourly average
-    hourly_data = data.resample(time='1H').mean(dim='time')
-
-    # Convert to DataFrame
-    hourly_df = hourly_data.to_dataframe().reset_index()
-
-    # Drop unnecessary columns if exist and just leave the 'time' and field value columns
-    hourly_df = hourly_df[['time', field]]
-
-    return hourly_df
-
-# Example usage
-start_date = "2017-01-01 00:00"
-hours = 24
-field = 'T2'  # Replace with your actual field name, e.g., temperature, wind u-component
-average_values = average_meteo(start_date, hours, field)
-print(average_values)
-
-# %%
-
-
-
-# %%
+# %% average_meteo
 import xarray as xr
 import pandas as pd
 from datetime import datetime, timedelta
@@ -309,7 +202,7 @@ def average_meteo(start_date, hours, field):
     """
     # Parse the starting date
     start_datetime = datetime.strptime(start_date, "%Y-%m-%d %H:%M")
-    gmt_correction = -6  # Correcting to match UTC time used by WRF data
+    gmt_correction = 6  # Correcting to match UTC time used by WRF data <-
     start_datetime_wrf = start_datetime + timedelta(hours=gmt_correction)
     year = start_datetime_wrf.year
     month = start_datetime_wrf.month
@@ -359,18 +252,21 @@ def average_meteo(start_date, hours, field):
 
 # Example usage
 
-start_date = "2024-04-09 00:00"
+start_date = "2024-05-09 05:00"
 hours = 1
 field = 'T2'  # Example meteorological field, e.g., temperature
 average_values = average_meteo(start_date, hours, field)
-print(average_values)
-# %%
+print(average_values-273)
+
+
+
+# %% Usando funcion average_meteo para plotear 5 días
 
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 
 
-start_date = datetime.strptime("2024-04-09 00:00", "%Y-%m-%d %H:%M")
+start_date = datetime.strptime("2024-04-09 12:00", "%Y-%m-%d %H:%M")
 field = 'T2'  # Meteorological field
 hours = 1     # Number of hours to average over
 times = []
@@ -400,6 +296,7 @@ plt.xticks(rotation=45)
 plt.tight_layout()
 plt.show()
 
-
+print(times[0])
+print(start_date)
 
 # %%
