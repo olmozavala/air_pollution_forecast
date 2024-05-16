@@ -26,16 +26,14 @@
 # average_meteo(start_date, hours, field (temp, u, v, etc)) → arreglo
 # con [promedios (size hours)]
 
+#####################################################################
+
 # %% pollutant_by_stations
 import sys
 import os
-
-script_dir = os.path.dirname(__file__)
-
-# Añade el directorio raíz del proyecto al path de Python
+script_dir = os.path.dirname(__file__) # Para importar el path del proyecto
 project_root = os.path.join(script_dir, '..')  # 'os.path.join' ruta subiendo un nivel
 sys.path.append(project_root)
-
 import pandas as pd
 from datetime import datetime
 from collections import defaultdict
@@ -71,18 +69,17 @@ def pollutant_by_stations(start_date: str, end_date: str, stations: list, pollut
     return df
 
 
-
 # Example usage
-start_date = "2023-12-01 00:00"
-end_date = "2023-12-14 00:00"
-stations = ['UAX', 'MER', 'XAL']
-pollutant = 'cont_otres'
+# start_date = "2023-12-01 00:00"
+# end_date = "2023-12-14 00:00"
+# stations = ['UAX', 'MER', 'XAL']
+# pollutant = 'cont_otres'
 
-data = pollutant_by_stations(start_date, end_date, stations, pollutant)
-print(data)
+# data = pollutant_by_stations(start_date, end_date, stations, pollutant)
+# print(data)
+
+#########################################################################
 # %% daily_max_pollutant_by_stations
-
-import pandas as pd
 
 def daily_max_pollutant_by_stations(start_date: str, end_date: str, stations: list, pollutant: str) -> pd.DataFrame:
     """
@@ -118,16 +115,18 @@ def daily_max_pollutant_by_stations(start_date: str, end_date: str, stations: li
 
     return results_df
 
+
 # Example usage
 
-start_date = "2022-12-01 00:00"
-end_date = "2023-12-14 00:00"
-stations = ['UAX', 'MER', 'XAL']
-pollutant = 'cont_otres'
+# start_date = "2022-12-01 00:00"
+# end_date = "2023-12-14 00:00"
+# stations = ['UAX', 'MER', 'XAL']
+# pollutant = 'cont_otres'
 
-data = daily_max_pollutant_by_stations(start_date, end_date, stations, pollutant)
-print(data)
+# data = daily_max_pollutant_by_stations(start_date, end_date, stations, pollutant)
+# print(data)
 
+#########################################################################
 # %% dates_above_threshold()
 def dates_above_threshold(df, threshold=90.0):
     """
@@ -146,24 +145,27 @@ def dates_above_threshold(df, threshold=90.0):
 
     return df_cleaned
 
-# Ejemplo de uso
-start_date = "2024-05-9 00:00"
-end_date = "2024-05-14 00:00"
-#stations = ['UAX', 'MER', 'XAL']
-all_stations = [
-    "UIZ", "AJU", "ATI", "CUA", "SFE", "SAG", "CUT", "PED", "TAH", "GAM",
-    "IZT", "CCA", "HGM", "LPR", "MGH", "CAM", "FAC", "TLA", "MER", "XAL",
-    "LLA", "TLI", "UAX", "BJU", "MPA", "MON", "NEZ", "INN", "AJM", "VIF"
-]
-pollutant = 'cont_otres'
+## Ejemplo de uso
+# start_date = "2024-05-9 00:00"
+# end_date = "2024-05-14 00:00"
+# #stations = ['UAX', 'MER', 'XAL']
+# all_stations = [
+#     "UIZ", "AJU", "ATI", "CUA", "SFE", "SAG", "CUT", "PED", "TAH", "GAM",
+#     "IZT", "CCA", "HGM", "LPR", "MGH", "CAM", "FAC", "TLA", "MER", "XAL",
+#     "LLA", "TLI", "UAX", "BJU", "MPA", "MON", "NEZ", "INN", "AJM", "VIF"
+# ]
+# pollutant = 'cont_otres'
 
-df = pollutant_by_stations(start_date, end_date, all_stations, pollutant)
-df_above_th = dates_above_threshold(df, 145.0)
+# df = pollutant_by_stations(start_date, end_date, all_stations, pollutant)
+# df_above_th = dates_above_threshold(df, 145.0)
 
-print(df_above_th)
+# print(df_above_th)
 
 
-# %% average_meteo
+#########################################################################
+# %% average_meteo function
+#########################################################################
+
 import xarray as xr
 import pandas as pd
 from datetime import datetime, timedelta
@@ -189,8 +191,6 @@ def average_meteo(start_date, hours, field):
     requerida de ese día. 
 
     TODO: USAR ÍNDICE del Hora inicial, y sacar el valor promedio para las siguientes (i.e. 3) horas para un valor promediado del grid.
-
-
 
     Parameters:
         start_date (str): The starting date and time in the format "YYYY-MM-DD HH:MM".
@@ -248,55 +248,13 @@ def average_meteo(start_date, hours, field):
     # Calculate the end datetime considering GMT correction
     end_datetime = start_datetime_wrf + timedelta(hours=hours - 1)  # Inclusive of the start hour
     
-    return average_value#hourly_df[['time', field]]
-
-# Example usage
-
-start_date = "2024-05-09 05:00"
-hours = 1
-field = 'T2'  # Example meteorological field, e.g., temperature
-average_values = average_meteo(start_date, hours, field)
-print(average_values-273)
+    return average_value
 
 
+## Example usage
 
-# %% Usando funcion average_meteo para plotear 5 días
-
-import matplotlib.pyplot as plt
-from datetime import datetime, timedelta
-
-
-start_date = datetime.strptime("2024-04-09 12:00", "%Y-%m-%d %H:%M")
-field = 'T2'  # Meteorological field
-hours = 1     # Number of hours to average over
-times = []
-averages = []
-
-# Calculate end date (5 days later)
-end_date = start_date + timedelta(days=5)
-
-# Current date starts at the start and proceeds in 3-hour intervals
-current_date = start_date
-
-while current_date < end_date:
-    formatted_date = current_date.strftime("%Y-%m-%d %H:%M")
-    average_value = average_meteo(formatted_date, hours, field)
-    if average_value is not None:
-        times.append(current_date)
-        averages.append(average_value)
-    current_date += timedelta(hours=3)
-
-# Plotting the results
-plt.figure(figsize=(10, 5))
-plt.plot(times, averages, marker='o', linestyle='-', color='b')
-plt.title('Temperature Averages Over Time')
-plt.xlabel('Time')
-plt.ylabel('Average Temperature')
-plt.xticks(rotation=45)
-plt.tight_layout()
-plt.show()
-
-print(times[0])
-print(start_date)
-
-# %%
+# start_date = "2024-05-09 05:00"
+# hours = 1
+# field = 'T2'  # Example meteorological field, e.g., temperature
+# average_values = average_meteo(start_date, hours, field)
+# print(average_values-273)
