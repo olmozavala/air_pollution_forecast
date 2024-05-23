@@ -166,31 +166,114 @@ def dates_above_threshold(df, threshold=90.0):
 # %% average_meteo function
 #########################################################################
 
-import xarray as xr
+import os
+import numpy as np
 import pandas as pd
+import xarray as xr
 from datetime import datetime, timedelta
-from proj_io.inout import get_month_folder_esp
 from os.path import join
+from proj_io.inout import get_month_folder_esp
 from proj_preproc.wrf import crop_variables_xr, subsampleData
-
-import matplotlib.pyplot as plt  # Para crear figuras y subfiguras
-import cartopy.crs as ccrs       # Para manejar las proyecciones cartográficas
-import numpy as np               # Para manejar arrays, usado aquí implícitamente para manipular datos
-
+import matplotlib.pyplot as plt
 
 wrf_input_folder = "/ServerData/WRF_2017_Kraken"
-bbox =  [18.75, 20,-99.75, -98.5]
+bbox = [18.75, 20, -99.75, -98.5]
 grid_size_wrf = 4  # 4 for 4x4
 
-def average_meteo(start_date, hours, field):
+def meteo_per_hour(start_date, hours, field):
     """
-    Calculate the hourly average for a specified meteorological field from a starting date over a specified number of hours,
+    Get the hourly values for a specified meteorological field from a starting date over a specified number of hours,
     correcting for GMT.
 
-    DOING: Ya obtiene el archivo del día, el campo para las diferentes horas, y el indice de la hora de inicio
-    requerida de ese día. 
+    Parameters:
+        start_date (str): The starting date and time in the format "YYYY-MM-DD HH:MM".
+        hours (int): The number of hours to retrieve values for from the start date.
+        field (str): The meteorological field to retrieve (e.g., 'T2', 'U10', 'V10').
 
-    TODO: USAR ÍNDICE del Hora inicial, y sacar el valor promedio para las siguientes (i.e. 3) horas para un valor promediado del grid.
+    Returns:
+        pd.DataFrame: A DataFrame with the values of the specified field over the given number of hours.
+    """
+    # Parse the starting date
+    start_datetime = datetime.strptime(start_date, "%Y-%m-%d %H:%M")
+    gmt_correction = 6  # Correcting to match UTC time used by WRF data
+    start_datetime_wrf = start_datetime + timedelta(hours=gmt_correction)
+    end_datetime_wrf = start_datetime_wrf + timedelta(hours=hours)
+    
+    all_meteo_data = []
+    file_names = []
+    current_datetime_wrf = start_datetime_wrf
+    hours_processed_per_day = 0
+
+    while current_datetime_wrf < end_datetime_wrf:
+        year = current_datetime_wrf.year
+        month = current_datetime_wrf.month
+        cur_month = get_month_folder_esp(month)  # Get folder in Spanish names spec
+        wrf_file_name = f"wrfout_d01_{current_datetime_wrf.strftime('%Y-%m-%d')}_00.nc"
+        wrf_file = join(join(wrf_input_folder, str(current_datetime_wrf.year), cur_month), wrf_file_name)
+        
+        days_before_wrf = 0  # Variable to check several nc's, in case the last is not found
+        wrf_times_to_load = range(24)
+        meteo_var_names = [field]
+        
+        while not os.path.exists(wrf_file):
+            print(f"ERROR: File {wrf_file} does not exist")
+            days_before_wrf += 1
+            wrf_run_day = current_datetime_wrf - timedelta(days=days_before_wrf)
+            wrf_file_name = f"wrfout_d01_{wrf_run_day.strftime('%Y-%m-%d')}_00.nc"
+            wrf_file = join(join(wrf_input_folder, str(wrf_run_day.year), cur_month), wrf_file_name)
+            wrf_times_to_load = np.array(list(wrf_times_to_load)) + 24  # Modify reading 24 'shifted' hours
+
+        #print(f"Working with wrf file: {wrf_file}")
+        
+        cur_xr_ds = xr.open_dataset(wrf_file, decode_times=False)
+        cropped_xr_ds, newLAT, newLon = crop_variables_xr(cur_xr_ds, meteo_var_names, bbox, times=wrf_times_to_load)
+        
+        # Subsampling the data
+        subsampled_xr_ds, coarselat, coarselon = subsampleData(cropped_xr_ds, meteo_var_names, grid_size_wrf, grid_size_wrf)
+        wrf_time_format = '%Y-%m-%d_%H:%M:%S'
+        wrf_dates = np.array([datetime.strptime(x.decode('utf-8'), wrf_time_format) for x in cur_xr_ds['Times'].values[wrf_times_to_load]])
+        
+        if current_datetime_wrf == start_datetime_wrf:
+            first_time_idx = np.where(wrf_dates >= current_datetime_wrf)[0][0]
+        else:
+            first_time_idx = 0
+
+        hours_to_load = min(hours, len(wrf_dates) - first_time_idx)
+        for wrf_hour_index in range(first_time_idx, first_time_idx + hours_to_load):
+            cur_var_np = subsampled_xr_ds[field].values[wrf_hour_index, :, :]
+            all_meteo_data.append(cur_var_np.flatten())
+            file_names.append(wrf_file_name)
+
+        current_datetime_wrf += timedelta(hours=int(hours_to_load))
+        hours -= hours_to_load
+
+    meteo_df = pd.DataFrame(all_meteo_data, index=pd.date_range(start=start_datetime_wrf, periods=len(all_meteo_data), freq='H'))
+    meteo_df['wrf_file_name'] = file_names
+    
+    return meteo_df
+
+# def average_meteo(start_date, hours, field):
+#     """
+#     Calculate the average of the grid values for each hour for a specified meteorological field 
+#     from a starting date over a specified number of hours.
+
+#     Parameters:
+#         start_date (str): The starting date and time in the format "YYYY-MM-DD HH:MM".
+#         hours (int): The number of hours to average over from the start date.
+#         field (str): The meteorological field to average (e.g., 'T2', 'U10', 'V10').
+
+#     Returns:
+#         pd.Series: A Series with the average values of the specified field for each hour.
+#     """
+#     meteo_df = meteo_per_hour(start_date, hours, field)
+#     return meteo_df.mean(axis=1)
+
+
+# Función para calcular la media solo de columnas numéricas
+def average_meteo(start_date, hours, field):
+    """
+    Calculate the average of the grid values for each hour for a specified meteorological field 
+    from a starting date over a specified number of hours.
 
     Parameters:
         start_date (str): The starting date and time in the format "YYYY-MM-DD HH:MM".
@@ -198,63 +281,41 @@ def average_meteo(start_date, hours, field):
         field (str): The meteorological field to average (e.g., 'T2', 'U10', 'V10').
 
     Returns:
-        pd.DataFrame: A DataFrame with the average values of the specified field over the given number of hours.
+        pd.Series: A Series with the average values of the specified field for each hour.
     """
-    # Parse the starting date
-    start_datetime = datetime.strptime(start_date, "%Y-%m-%d %H:%M")
-    gmt_correction = 6  # Correcting to match UTC time used by WRF data <-
-    start_datetime_wrf = start_datetime + timedelta(hours=gmt_correction)
-    year = start_datetime_wrf.year
-    month = start_datetime_wrf.month
-    
-    cur_month = get_month_folder_esp(month) # get folder in spanhish names spec
-    wrf_file_name = f"wrfout_d01_{start_datetime.strftime('%Y-%m-%d')}_00.nc"
-    wrf_file = join(join(wrf_input_folder,str(start_datetime.year), cur_month), wrf_file_name)
+    meteo_df = meteo_per_hour(start_date, hours, field)
+    # Seleccionar solo columnas numéricas
+    numeric_df = meteo_df.select_dtypes(include=[np.number])
+    return numeric_df.mean(axis=1)
 
-    days_before_wrf = 0 # Var to check several nc's, in case the last is not found
-    wrf_times_to_load = range(72)  # 
-    meteo_var_names = [field]
+def plot_average_values(average_values, title='Valores Promedio de Campo Meteorológico', ylabel='Valor Promedio'):
+    """
+    Función para graficar los valores promedio.
 
-    while not(os.path.exists(wrf_file)):
-        print(f"ERROR File {wrf_file} does not exist")
-        days_before_wrf += 1
-        wrf_run_day = start_datetime - timedelta(days=days_before_wrf)
-        wrf_file_name = f"wrfout_d01_{wrf_run_day.strftime('%Y-%m-%d')}_00.nc"
-        wrf_file = join(join(wrf_input_folder,str(start_datetime.year), cur_month), wrf_file_name)
-        wrf_times_to_load = np.array(list(wrf_times_to_load)) + 24 # Modify reading 24 'shifted' hours. 
-    print(f"Working with wrf file: {wrf_file}")
-    
-    cur_xr_ds = xr.open_dataset(wrf_file, decode_times=False)
-    cropped_xr_ds, newLAT, newLon = crop_variables_xr(cur_xr_ds, meteo_var_names, bbox, times=wrf_times_to_load)
-    
-    #Subsampling the data
-    subsampled_xr_ds, coarselat, coarselon = subsampleData(cropped_xr_ds, meteo_var_names, grid_size_wrf, grid_size_wrf)
-    wrf_time_format = '%Y-%m-%d_%H:%M:%S'
-    wrf_dates = np.array([datetime.strptime(x.decode('utf-8'), wrf_time_format) for x in cur_xr_ds['Times'].values[wrf_times_to_load]])
-    first_time_idx = np.where(wrf_dates >= start_datetime_wrf)[0][0]
-    print(f"Current time from wrf is {wrf_dates[first_time_idx]} (Original start time: {start_datetime} )")
-    meteo_cols = {}
+    Parameters:
+        average_values (pd.Series): Serie con los valores promedio de un campo meteorológico.
+        title (str): Título del gráfico.
+        ylabel (str): Etiqueta del eje y.
+    """
+    plt.figure(figsize=(12, 6))
+    plt.plot(average_values.index, average_values.values, marker='o', linestyle='-', color='b')
+    plt.title(title)
+    plt.xlabel('Fecha y Hora')
+    plt.ylabel(ylabel)
+    plt.xticks(rotation=45)
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
 
-    for cur_var_name in meteo_var_names:
-            for cur_hour, wrf_hour_index in enumerate(range(first_time_idx, first_time_idx+hours)):
-                cur_var_np = subsampled_xr_ds[cur_var_name].values
-                var_flat_values = np.array(cur_var_np[wrf_hour_index,:,:].flatten())
-                temp = {f'{cur_var_name}_{i}_h{cur_hour}':val for i, val in enumerate(var_flat_values)} 
-                meteo_cols = {**meteo_cols, **temp} # Se arma diccionario con campos grid, y horas 
-            average_value = sum(meteo_cols.values()) / len(meteo_cols)
-            print(f'average_value: {average_value}')
-    
+# Ejemplo de uso
 
-    # Calculate the end datetime considering GMT correction
-    end_datetime = start_datetime_wrf + timedelta(hours=hours - 1)  # Inclusive of the start hour
-    
-    return average_value
-
-
-## Example usage
-
-# start_date = "2024-05-09 05:00"
-# hours = 1
+# start_date = "2023-05-09 00:00"
+# hours = 24*10
 # field = 'T2'  # Example meteorological field, e.g., temperature
 # average_values = average_meteo(start_date, hours, field)
-# print(average_values-273)
+# print(average_values)
+
+# Graficar los valores promedio
+# plot_average_values(average_values)
+
+# %%
