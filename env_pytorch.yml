@@ -1,0 +1,28 @@
+name: env_pytorch
+channels:
+  - defaults
+dependencies:
+  - python=3.9
+  - pip
+  - torchvision
+  - cudatoolkit=11.5
+  - jupyterlab
+  - ipywidgets
+  - tensorboard
+  - numpy
+  - pandas
+  - xarray
+  - netcdf4
+  - h5py
+  - matplotlib
+  - opencv
+  - papermill
+  - scrapbook
+  - gdal
+  - geopandas
+  - scikit-learn
+  - ca-certificates
+  - certifi
+  - openssl
+  - seaborn
+prefix: /home/pedro/Workspace/.conda/envs/env_pytorch
