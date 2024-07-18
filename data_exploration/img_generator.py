@@ -12,6 +12,104 @@
 # Widget Graficar promedio por estacion y varianza. Aqui la idea seria
 # ver cuanto varian los valores por estacoin. [start_date, end_date,
 # stations=all []]
+# %%
+# import pandas as pd
+# import matplotlib.pyplot as plt
+# from ipywidgets import interact, VBox, DatePicker, SelectMultiple, Button, Output
+# from data_generator import pollutant_by_stations, average_meteo
+
+# # Function to normalize data
+# def normalize_data(df, mean=None, std=None):
+#     if mean is None or std is None:
+#         return (df - df.mean()) / df.std()
+#     else:
+#         return (df - mean) / std
+
+# # Function to plot meteorological and pollutant data
+# def plot_meteo_data(start_date, end_date, stations, pollutants, meteorological_fields, out):
+#     combined_df = pd.DataFrame()
+#     colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k']
+#     symbols = ['-', '--', '-.', ':', 'o', 'v', '^']
+
+#     # Create a color map for stations
+#     station_colors = {station: colors[i % len(colors)] for i, station in enumerate(stations)}
+
+#     # Process pollutant data
+#     for i, station in enumerate(stations):
+#         for j, pollutant in enumerate(pollutants):
+#             try:
+#                 pollutant_data = pollutant_by_stations(start_date.strftime('%Y-%m-%d %H:%M'), end_date.strftime('%Y-%m-%d %H:%M'), [station], pollutant)
+#                 pollutant_df = pd.DataFrame(pollutant_data)
+#                 normalized_pollutant_df = normalize_data(pollutant_df)
+#                 combined_df = pd.concat([combined_df, normalized_pollutant_df.add_prefix(f'{pollutant}_{station}_')], axis=1)
+#             except KeyError as e:
+#                 print(f"Error: Pollutant {pollutant} not found. Exception: {e}")
+#                 continue
+
+#     # Process meteorological data
+#     for i, meteorological_field in enumerate(meteorological_fields):
+#         try:
+#             meteo_df = average_meteo(start_date.strftime('%Y-%m-%d %H:%M'), (end_date - start_date).days * 24, meteorological_field)
+#             time_shift = -6  # Adjust according to the actual shift
+#             meteo_df.index = meteo_df.index + pd.Timedelta(hours=time_shift)
+#             normalized_meteo_df = normalize_data(meteo_df)
+#             combined_df = pd.concat([combined_df, normalized_meteo_df.rename(f'{meteorological_field}')], axis=1)
+#         except KeyError as e:
+#             print(f"Error: Meteorological field {meteorological_field} not found. Exception: {e}")
+#             continue
+
+#     # Plot the data
+#     with out:
+#         out.clear_output()
+#         plt.figure(figsize=(12, 6))
+        
+#         # Plot pollutant data
+#         for col in combined_df.columns:
+#             for k, pollutant in enumerate(pollutants):
+#                 if pollutant in col:
+#                     station = col.split('_')[-1]
+#                     try:
+#                         plt.plot(combined_df.index, combined_df[col], symbols[k % len(symbols)], color=station_colors[station], label=f'{pollutant} ({station})')
+#                     except KeyError as e:
+#                         print(f"Error: Station {station} not found in station colors. Exception: {e}")
+#                         continue
+        
+#         # Plot meteorological data
+#         for col in combined_df.columns:
+#             if any(meteorological_field in col for meteorological_field in meteorological_fields):
+#                 plt.plot(combined_df.index, combined_df[col], symbols[i % len(symbols)], color='k', label=f'{col}')
+
+#         plt.title('Relationship between Pollutants and Meteorological Fields')
+#         plt.xlabel('Date')
+#         plt.ylabel('Normalized Value')
+#         plt.legend()
+#         plt.show()
+
+# # Function to create and display the widget
+# def plot_by_station_date_and_meteo_pollutant(start_date="2022-05-03 00:00", end_date="2022-05-06 00:00", ok_stations=['UAX', 'MER', 'XAL', 'PED']):
+#     # Widget configuration
+#     start_date_picker = DatePicker(description='Start Date', value=pd.to_datetime(start_date))
+#     end_date_picker = DatePicker(description='End Date', value=pd.to_datetime(end_date))
+#     stations_select = SelectMultiple(description='Stations', options=ok_stations, value=ok_stations)
+#     pollutant_select = SelectMultiple(description='Pollutants', options=['cont_otres', 'cont_pmdoscinco', 'cont_pmdiez', 'cont_nox'], value=['cont_otres', 'cont_nox'])
+#     meteorological_field_select = SelectMultiple(description='Meteo Fields', options=['met_rh', 'met_tmp', 'met_wdr', 'met_wsp', 'met_pba'], value=['met_tmp', 'met_wsp'])
+#     button = Button(description="Recalculate")
+#     out = Output()
+
+#     def update_plot(button):
+#         plot_meteo_data(start_date_picker.value, end_date_picker.value, stations_select.value, pollutant_select.value, meteorological_field_select.value, out)
+
+#     button.on_click(update_plot)
+
+#     # User interface
+#     ui = VBox([start_date_picker, end_date_picker, stations_select, pollutant_select, meteorological_field_select, button, out])
+
+#     display(ui)
+
+# # Example usage
+# plot_by_station_date_and_meteo_pollutant()
+
+
 
 #%%
 import pandas as pd
@@ -83,7 +181,7 @@ def plot_by_station_date_and_meteo_pollutant_unnormalized(start_date="2022-05-03
     end_date_picker = DatePicker(description='End Date', value=pd.to_datetime(end_date))
     stations_select = SelectMultiple(description='Stations', options=ok_stations, value=ok_stations)
     pollutant_select = SelectMultiple(description='Pollutants', options=['cont_otres', 'cont_pmdoscinco', 'cont_pmdiez', 'cont_nox'], value=['cont_otres', 'cont_nox'])
-    meteorological_field_select = SelectMultiple(description='Meteo Fields', options=['T2', 'U10', 'V10', 'RAINC'], value=['T2', 'RAINC'])
+    meteorological_field_select = SelectMultiple(description='Meteo Fields', options=['T2', 'U10', 'V10', 'RAINC','RAINNC','GLW', 'SWDOWN'], value=['T2', 'RAINC'])
     button = Button(description="Recalculate")
     out = Output()
 
@@ -138,6 +236,8 @@ def plot_meteo_data(start_date, end_date, stations, pollutants, meteorological_f
     for i, meteorological_field in enumerate(meteorological_fields):
         try:
             meteo_df = average_meteo(start_date.strftime('%Y-%m-%d %H:%M'), (end_date - start_date).days * 24, meteorological_field)
+            time_shift = -7 #hours to shift on df en realidad debería ser -6 este y -1 las otras mediciones..   
+            meteo_df.index = meteo_df.index + pd.Timedelta(hours=time_shift)  # Shift time
             normalized_meteo_df = normalize_data(meteo_df)
             combined_df = pd.concat([combined_df, normalized_meteo_df.rename(f'{meteorological_field}')], axis=1)
         except KeyError as e:
@@ -177,8 +277,8 @@ def plot_by_station_date_and_meteo_pollutant(start_date="2022-05-03 00:00", end_
     start_date_picker = DatePicker(description='Start Date', value=pd.to_datetime(start_date))
     end_date_picker = DatePicker(description='End Date', value=pd.to_datetime(end_date))
     stations_select = SelectMultiple(description='Stations', options=ok_stations, value=ok_stations)
-    pollutant_select = SelectMultiple(description='Pollutants', options=['cont_otres', 'cont_pmdoscinco', 'cont_pmdiez', 'cont_nox'], value=['cont_otres', 'cont_nox'])
-    meteorological_field_select = SelectMultiple(description='Meteo Fields', options=['T2', 'U10', 'V10', 'RAINC'], value=['T2', 'RAINC'])
+    pollutant_select = SelectMultiple(description='Pollutants', options=['cont_otres', 'cont_pmdoscinco', 'cont_pmdiez', 'cont_nox','met_tmp', 'met_rh','met_wdr', 'met_wsp' ], value=['cont_otres', 'cont_nox'])
+    meteorological_field_select = SelectMultiple(description='Meteo Fields', options=['T2', 'U10', 'V10', 'RAINC','RAINNC','GLW', 'SWDOWN'], value=['T2', 'RAINC'])
     button = Button(description="Recalculate")
     out = Output()
 
