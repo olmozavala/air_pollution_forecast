@@ -20,6 +20,7 @@ from conf.localConstants import constants
 _min_value_ozone = 0
 _max_value_ozone = 250
 
+
 # %%
 def generate_date_hot_vector(datetimes_original):
     # datetimes = [datetime.strptime(x, '%Y-%m-%d %H:%M:%S') for x in datetimes_original]

@@ -9,10 +9,9 @@ import warnings
 # Filter the warning
 warnings.filterwarnings("ignore", message="DataFrame is highly fragmented")
 
-from ai_common.constants.AI_params import NormParams, TrainingParams, ModelParams
+from ai_common.constants.AI_params import TrainingParams, ModelParams
 import ai_common.training.trainingutils as utilsNN
 from ai_common.models.modelSelector import select_1d_model
-from conf.MakeWRF_and_DB_CSV_UserConfiguration import getPreprocWRFParams
 
 # from viz_utils.eoa_viz import EOAImageVisualizer
 from io_utils.io_common import create_folder
@@ -26,14 +25,8 @@ from datetime import date, datetime, timedelta
 import tensorflow as tf
 # from tensorflow.keras.utils import plot_model
 import numpy as np
-import pandas as pd
-from pandas import DataFrame
-from sklearn import preprocessing
 from os.path import join
-import matplotlib.pyplot as plt
 import os
-import time
-import pickle
  
 
 # %% ========= Set the GPU to use ==================
@@ -77,6 +70,7 @@ weights_folder = join(output_folder, 'models')
 logs_folder = join(output_folder, 'logs')
 imgs_folder= join(output_folder, 'imgs')
 norm_folder = join(output_folder, 'norm')
+
 create_folder(split_info_folder)
 create_folder(parameters_folder)
 create_folder(weights_folder)
@@ -84,7 +78,7 @@ create_folder(logs_folder)
 create_folder(norm_folder)
 create_folder(imgs_folder)
 
-# %% Reading the data
+# %% Reading the merged CSV files
 input_folder = config[TrainingParams.input_folder]
 data = read_merged_files(input_folder, start_year, end_year)
 config[ModelParams.INPUT_SIZE] = len(data.columns)
@@ -99,13 +93,12 @@ file_name_norm = join(norm_folder,F"{model_name}_scaler.pkl")
 print("Normalizing data....")
 data_norm_df = normalizeData(data, norm_type, file_name_norm)
 
-# %% ====== Getting all the orignal columns by type
+# %% ====== Getting all the orignal columns names by type (contaminant, mteo, time)
 all_contaminant_columns, all_meteo_columns, all_time_colums = get_column_names(data_norm_df)
 
 # %% ====== Remove columns for other pollutants
 # Here we remove all the data of other pollutants
-X_df = filter_data(data_norm_df, filter_type='single_pollutant',
-                   filtered_pollutant=cur_pollutant) 
+X_df = filter_data(data_norm_df, filter_type='single_pollutant', filtered_pollutant=cur_pollutant) 
 
 print(X_df.columns.values)
 print(F'X {X_df.shape}, Memory usage: {X_df.memory_usage().sum()/1024**2:02f} MB')

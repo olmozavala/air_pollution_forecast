@@ -1,12 +1,5 @@
 
 # %%
-import sys
-
-# sys.path.append('./eoas_pyutils')  # Doesn't work when using a conda env outside home
-sys.path.append('/home/olmozavala/air_pollution_forecast/eoas_pyutils')
-
-# Only for testing purposes
-sys.path.append('/home/olmozavala/air_pollution_forecast/')
 
 from datetime import datetime
 from ai_common.constants.AI_params import NormParams
