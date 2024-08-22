@@ -87,9 +87,11 @@ def read_wrf_files_names(input_folder, start_date, end_date, pref="d02"):
     # Iterate over the years
     for cur_year in range(start_date.year, end_date.year+1):
         months_in_year = os.listdir(join(input_folder, str(cur_year)))
+        months_in_year.sort()
         # Iterate over the months inside that year
         for cur_month in months_in_year:
             all_files = os.listdir(join(input_folder, str(cur_year), str(cur_month)))
+            all_files.sort()
             # Get all domain files (we have two domains now)
             all_domain_files = [x for x in all_files if file_re.match(x) != None]
             all_domain_files.sort()
@@ -125,7 +127,7 @@ def saveFlattenedVariables(xr_ds, variable_names, output_folder, file_name, inde
         temp_dict = {var_columns[i]: var_flat_values[:,i] for i in range(len(var_columns))}
         all_data = pd.concat([all_data, pd.DataFrame(temp_dict)], axis=1)
 
-    all_data.set_axis(index_names, inplace=True)
+    all_data = all_data.set_axis(index_names)
     all_data.to_csv(join(output_folder,file_name), index_label=index_label, float_format = "%.4f")
 
 def readMeteorologicalData(datetimes, forecasted_hours, num_hours_in_netcdf, WRF_data_folder_name):

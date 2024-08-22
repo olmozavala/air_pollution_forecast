@@ -1,7 +1,9 @@
 # %%
 import sys
 import numpy as np
-sys.path.append('/home/olmozavala/air_pollution_forecast/eoas_pyutils')
+# We need to add the path to the root folder of the project
+# sys.path.append('/home/olmozavala/air_pollution_forecast/eoas_pyutils')
+sys.path.append('/home/olmozavala/CODE/air_pollution_forecast/eoas_pyutils')
 
 from conf.MakeWRF_and_DB_CSV_UserConfiguration import getPreprocWRFParams
 from conf.params import PreprocParams
@@ -144,8 +146,8 @@ if __name__== '__main__':
     input_folder_old = user_config[PreprocParams.input_folder_old]
 
     # The max range is from 1980 to present
-    start_year = 2010
-    end_year = 2023
+    start_year = 2023
+    end_year = 2025
 
     # Run this process in parallel splitting separating by years
     NUMBER_PROC = 10

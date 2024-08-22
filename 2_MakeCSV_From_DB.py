@@ -21,11 +21,13 @@ if not (os.path.exists(output_folder)):
 
 ## Connect to db
 conn = getPostgresConn()
+# Print the start and end date
+print(F"Start date: {start_date} and end date: {end_date}")
 for cur_station in stations:
 # for cur_station in ['IZT']:
     print(F" ====================== {cur_station} ====================== ")
-    # for cur_pollutant in pollutants:
-    for cur_pollutant in ['cont_co']:
+    for cur_pollutant in pollutants:
+    # for cur_pollutant in ['cont_co']:
         print(F"\t ---------------------- {cur_pollutant} ---------------------- ")
         cur_data = np.array(getPollutantFromDateRange(conn, cur_pollutant, start_date, end_date, [cur_station]))
         if len(cur_data) > 0:
