@@ -86,24 +86,27 @@ def read_wrf_files_names(input_folder, start_date, end_date, pref="d02"):
     result_dates = []
     # Iterate over the years
     for cur_year in range(start_date.year, end_date.year+1):
-        months_in_year = os.listdir(join(input_folder, str(cur_year)))
-        months_in_year.sort()
-        # Iterate over the months inside that year
-        for cur_month in months_in_year:
-            all_files = os.listdir(join(input_folder, str(cur_year), str(cur_month)))
-            all_files.sort()
-            # Get all domain files (we have two domains now)
-            all_domain_files = [x for x in all_files if file_re.match(x) != None]
-            all_domain_files.sort()
-            # print(all_domain_files)
-            # Verify the files are withing the desired dates
-            for curr_file in all_domain_files:
-                dateNetCDF = datetime.strptime(date_re.findall(curr_file)[0], '%Y-%m-%d')
-                if (dateNetCDF < end_date) & (dateNetCDF >= start_date):
-                    result_files.append(curr_file)
-                    result_paths.append(join(input_folder, str(cur_year), str(cur_month), curr_file))
-                    result_dates.append(dateNetCDF)
-                    print(F'{curr_file} -- {dateNetCDF}')
+        try:
+            months_in_year = os.listdir(join(input_folder, str(cur_year)))
+            months_in_year.sort()
+            # Iterate over the months inside that year
+            for cur_month in months_in_year:
+                all_files = os.listdir(join(input_folder, str(cur_year), str(cur_month)))
+                all_files.sort()
+                # Get all domain files (we have two domains now)
+                all_domain_files = [x for x in all_files if file_re.match(x) != None]
+                all_domain_files.sort()
+                # print(all_domain_files)
+                # Verify the files are withing the desired dates
+                for curr_file in all_domain_files:
+                    dateNetCDF = datetime.strptime(date_re.findall(curr_file)[0], '%Y-%m-%d')
+                    if (dateNetCDF < end_date) & (dateNetCDF >= start_date):
+                        result_files.append(curr_file)
+                        result_paths.append(join(input_folder, str(cur_year), str(cur_month), curr_file))
+                        result_dates.append(dateNetCDF)
+                        print(F'{curr_file} -- {dateNetCDF}')
+        except Exception as e:
+            print(F"Error reading files for year {cur_year}: {e}")
 
     return result_dates, result_files, result_paths
 
@@ -331,11 +334,25 @@ def add_previous_hours(df, hours_before=24):
     '''
     print("\tAdding the previous hours of the pollutants as additional columns...")
 
-    contaminant_columns, _, _= get_column_names(df)
+    # Old code remove if things are working
+    # contaminant_columns, _, _= get_column_names(df)
+    # for c_hour in range(1, hours_before+1):
+        # for c_column in contaminant_columns:
+            # df[f'minus_{c_hour:02d}_{c_column}'] = df[c_column].shift(c_hour)
+
+    # Suggested code from ChatGPT to avoid defragmenting warning
     # print(F"\t\tContaminant columns: {contaminant_columns.values}")
+    contaminant_columns, _, _= get_column_names(df)
+    new_columns = {}
     for c_hour in range(1, hours_before+1):
         for c_column in contaminant_columns:
-            df[f'minus_{c_hour:02d}_{c_column}'] = df[c_column].shift(c_hour)
+            new_column_name = f'minus_{c_hour:02d}_{c_column}'
+            new_columns[new_column_name] = df[c_column].shift(c_hour)
+
+    df = pd.concat([df, pd.DataFrame(new_columns)], axis=1)
+    # Optionally, de-fragment the DataFrame to improve performance
+    df = df.copy()
+
     print(F'X {df.shape}, Memory usage: {df.memory_usage().sum()/1024**2:02f} MB')
     print("Done!")
     return df
@@ -348,12 +365,24 @@ def add_forecasted_hours(df, pollutant, forecasted_hours=range(1,25)):
     myregex = f"^cont_{pollutant}.*"
     single_cont_columns = df.filter(regex=myregex).columns
     # print(single_cont_columns)
-
+    # Delete if things ar eworking old code
     # Adds the next 24 (forecasted_hours) hours to the prediction
-    Y_df =  pd.DataFrame(index=df.index)
+    # Y_df =  pd.DataFrame(index=df.index)
+    # for c_hour in forecasted_hours:
+        # for c_column in single_cont_columns:
+            # Y_df[f'plus_{c_hour:02d}_{c_column}'] = df[c_column].shift(-c_hour)
+
+    new_Y_columns = {}
+
+    # Loop to create the shifted columns
     for c_hour in forecasted_hours:
         for c_column in single_cont_columns:
-            Y_df[f'plus_{c_hour:02d}_{c_column}'] = df[c_column].shift(-c_hour)
+            new_column_name = f'plus_{c_hour:02d}_{c_column}'
+            new_Y_columns[new_column_name] = df[c_column].shift(-c_hour)
+
+    # Concatenate all new columns at once
+    Y_df =  pd.DataFrame(index=df.index)
+    Y_df = pd.concat([pd.DataFrame(index=df.index), pd.DataFrame(new_Y_columns)], axis=1)
 
     print(f"Shape of Y: {Y_df.shape}")
     print("Done!")

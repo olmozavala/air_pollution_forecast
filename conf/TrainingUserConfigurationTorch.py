@@ -1,17 +1,10 @@
 from conf.params import MergeFilesParams, LocalTrainingParams
-import glob
 from conf.localConstants import constants
-from tensorflow.keras.optimizers import Adam, SGD
-import tensorflow.keras.metrics as metrics
-import tensorflow.keras.activations as activations
-import tensorflow.keras.losses as losses
 from os.path import join
 from db.names import getContaminantsTables
-import os
 from sklearn.metrics import *
-from proj_prediction.metrics import restricted_mse
-import numpy as np
-from proj_ai.lossfunctions import custom_mse
+from torch.optim import Adam
+import torch.nn as nn
 
 from ai_common.constants.AI_params import ModelParams, AiModels, TrainingParams, ClassificationParams, VisualizationResultsParams, NormParams
 
@@ -47,9 +40,8 @@ def append_model_params(cur_config):
         ModelParams.BATCH_NORMALIZATION: True,
         # ModelParams.CELLS_PER_HIDDEN_LAYER: [300, 300, 300],
         ModelParams.CELLS_PER_HIDDEN_LAYER: [300, 300, 300, 300],
-        ModelParams.NUMBER_OF_OUTPUT_CLASSES: 1,
         ModelParams.ACTIVATION_HIDDEN_LAYERS: 'relu',
-        ModelParams.ACTIVATION_OUTPUT_LAYERS: None
+        ModelParams.ACTIVATION_OUTPUT_LAYERS: 'linear'
     }
     model_config[ModelParams.HIDDEN_LAYERS] = len(model_config[ModelParams.CELLS_PER_HIDDEN_LAYER])
     return {**cur_config, **model_config}
@@ -67,7 +59,7 @@ def getMergeParams():
         LocalTrainingParams.tot_num_quadrants: grid_size * grid_size,
         LocalTrainingParams.num_hours_in_netcdf: 24, # 72 (forecast)
         MergeFilesParams.output_folder: join(data_folder, constants.merge_output_folder.value),
-        MergeFilesParams.years: range(2010,2025)
+        MergeFilesParams.years: range(2010,2024)
         # MergeFilesParams.years: range(2017,2018)
     }
 
@@ -78,13 +70,13 @@ def getTrainingParams():
     cur_config = {
         TrainingParams.input_folder: join(data_folder, constants.merge_output_folder.value, merged_specific_folder),
         # TrainingParams.output_folder: F"{join(data_folder, constants.training_output_folder.value)}",
-        TrainingParams.output_folder: F"{join(data_folder, 'TrainingTestsOZ')}",
+        TrainingParams.output_folder: F"{join(data_folder, 'TrainingTestsOZTorch')}",
         TrainingParams.validation_percentage: .1,
         TrainingParams.test_percentage: 0, # If training with 10 years, we test on the last one
-        TrainingParams.evaluation_metrics: [metrics.mean_squared_error],  # Metrics to show in tensor flow in the training
-        TrainingParams.loss_function: losses.mean_squared_error,  # Loss function to use for the learning
+        # TrainingParams.evaluation_metrics: [losses.],  # Metrics to show in tensor flow in the training
+        # TrainingParams.loss_function: losses.mean_squared_error,  # Loss function to use for the learning
         # TrainingParams.loss_function: custom_mse,  # Loss function to use for the learning
-        TrainingParams.optimizer: Adam(learning_rate=.0001),  # Default values learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=None,
+        TrainingParams.optimizer: Adam,  # Default values learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=None,
         TrainingParams.batch_size: 5000,
         TrainingParams.epochs: 5000,
         TrainingParams.config_name: _run_name,

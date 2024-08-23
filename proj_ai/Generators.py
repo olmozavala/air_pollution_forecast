@@ -1,7 +1,7 @@
 
 # %%
 
-from datetime import datetime
+from datetime import datetime, timezone
 from ai_common.constants.AI_params import NormParams
 from conf.localConstants import constants
 
@@ -20,12 +20,11 @@ class AirPollutionDataset(Dataset):
 
     def __init__(self, input_folder, start_year, end_year, model_name, 
                  cur_pollutant, output_folder, norm_type,
-                 forecasted_hours, hours_before, 
-                 val_perc,  
+                 forecasted_hours, hours_before, val_perc,  
                  bootstrap = False, boostrap_factor = 10, boostrap_threshold = 2.9,
                 validation_data = False, transform=None):
 
-        # %% ====== Creating the output folders 
+        #  ====== Creating the output folders 
         split_info_folder = join(output_folder, 'Splits')
         parameters_folder = join(output_folder, 'Parameters')
         weights_folder = join(output_folder, 'models')
@@ -39,39 +38,38 @@ class AirPollutionDataset(Dataset):
         create_folder(norm_folder)
         create_folder(imgs_folder)
 
-        # %% Reading the data
+        #  Reading the data
         data = read_merged_files(input_folder, start_year, end_year)
 
-        datetimes_str = data.index.values
-        datetimes = np.array([datetime.strptime(x, constants.datetime_format.value) for x in datetimes_str])
-
-        # %% -------- Normalizing data
-        now = datetime.utcnow().strftime("%Y_%m_%d_%H_%M")
+        #  -------- Normalizing data
+        now = datetime.now(timezone.utc).strftime("%Y_%m_%d_%H_%M")
         model_name = F'{model_name}_{cur_pollutant}_{now}'
         file_name_norm = join(norm_folder,F"{model_name}_scaler.pkl")  
         print("Normalizing data....")
         data_norm_df = normalizeData(data, norm_type, file_name_norm)
 
-        # %% ====== Getting all the orignal columns by type
-        all_contaminant_columns, all_meteo_columns, all_time_colums = get_column_names(data_norm_df)
-
-        # %% ====== Remove columns for other pollutants
+        # ====== Remove columns for other pollutants
         # Here we remove all the data of other pollutants
         X_df = filter_data(data_norm_df, filter_type='single_pollutant',
                         filtered_pollutant=cur_pollutant) 
 
-        print(X_df.columns.values)
+        print(f"Current columns: {X_df.columns.values}")
         print(F'X {X_df.shape}, Memory usage: {X_df.memory_usage().sum()/1024**2:02f} MB')
 
-        # %% ====== Adding the previous hours of the pollutants as extra columns (all contaminants)
+        # ====== Adding the previous hours of the pollutants as extra columns (all contaminants)
         print(F"Building X and Y ....")
         X_df = add_previous_hours(X_df, hours_before=24)
 
-        # %% ====== Adding the forecasted hours of the pollutants as the predicted column Y (specific contaminant)
+        # ====== Adding the forecasted hours of the pollutants as the predicted column Y (specific contaminant)
         print("\tAdding the forecasted hours of the pollutant as the predicted column Y...")
         Y_df = add_forecasted_hours(X_df, cur_pollutant, range(1,forecasted_hours+1))
 
-        # %% Remove the first hours because Print the final shape of X and Y
+        # ====== Getting all the orignal columns by type
+        all_contaminant_columns, all_meteo_columns, all_time_colums = get_column_names(X_df)
+        self.x_cols_names = X_df.columns.values
+        self.y_cols_names = Y_df.columns.values
+
+        # ======  Remove the first hours because should have missing previous hours 
         X_df = X_df.iloc[hours_before:,:]
         Y_df = Y_df.iloc[hours_before:,:]
         save_columns(Y_df, join(output_folder, 'Y_columns.csv'))
@@ -82,51 +80,57 @@ class AirPollutionDataset(Dataset):
         print(F'X {X_df.shape}, Memory usage: {X_df.memory_usage().sum()/1024**2:02f} MB')
         print(F'Y {Y_df.shape}, Memory usage: {Y_df.memory_usage().sum()/1024**2:02f} MB')
 
-        #%% Split the training data by year
-        print("Splitting training and validation data by year....")
+        # Split the training data by year
+        print("Getting training and validation indexes...")
 
         splits_file = join(split_info_folder, F'splits_{model_name}.csv')
         train_idxs, val_idxs, test_idxs = split_train_validation_and_test(
             len(X_df), val_perc, 0, shuffle_ids=False, file_name=splits_file)
 
-        # %% Remove time as index 
+        self.train_idxs = train_idxs
+        self.val_idxs = val_idxs
+        self.test_idxs = test_idxs
+
+        # Print the size of each subset
+        print(F"Train: {len(train_idxs)} Validation: {len(val_idxs)} Test: {len(test_idxs)}")
+
+        # ==========  Remove time as index 
         # Here we remove the datetime indexes so we need to consider that 
         print("Removing time index...")
         X_df.reset_index(drop=True, inplace=True)
         Y_df.reset_index(drop=True, inplace=True)
 
-        if validation_data:
-            X_df = X_df.iloc[val_idxs]
-            Y_df = Y_df.iloc[val_idxs]
-        else:
-            X_df = X_df.iloc[train_idxs]
-            Y_df = Y_df.iloc[train_idxs]
-
-        data_type = "validation" if validation_data else "train"
-        print(F'X {data_type} {X_df.shape}, Memory usage: {X_df.memory_usage().sum()/1024**2:02f} MB')
-        print(F'Y {data_type} {Y_df.shape}, Memory usage: {Y_df.memory_usage().sum()/1024**2:02f} MB')
-
         print("Done!")
+        # BOOTSTRAPPING should be moved to a different function and called from the training script
+        #  ======= Bootstrapping the data
+        # if bootstrap and not validation_data:
+        #     # -------- Bootstrapping the data
+        #     # Se utiliza esta estacion para decidir que indices son los que se van a usar para el bootstrapping.
+        #     # Only the indexes for this station that are above the threshold will be used for bootstrapping
+        #     station = "MER" 
+        #     print("Bootstrapping the data...")
+        #     print(F'X train {X_df.shape}, Memory usage: {X_df.memory_usage().sum()/1024**2:02f} MB')
+        #     print(F'Y train {Y_df.shape}, Memory usage: {Y_df.memory_usage().sum()/1024**2:02f} MB')
+        #     X_df, Y_df = apply_bootstrap(X_df, Y_df, cur_pollutant, station, boostrap_threshold, forecasted_hours, boostrap_factor)
+        #     print(F'X train bootstrapped {X_df.shape}, Memory usage: {X_df.memory_usage().sum()/1024**2:02f} MB')
+        #     print(F'Y train bootstrapped {Y_df.shape}, Memory usage: {Y_df.memory_usage().sum()/1024**2:02f} MB')
 
-        # %% ======= Bootstrapping the data
-        if bootstrap and not validation_data:
-            # -------- Bootstrapping the data
-            # Se utiliza esta estacion para decidir que indices son los que se van a usar para el bootstrapping.
-            # Only the indexes for this station that are above the threshold will be used for bootstrapping
-            station = "MER" 
-            print("Bootstrapping the data...")
-            print(F'X train {X_df.shape}, Memory usage: {X_df.memory_usage().sum()/1024**2:02f} MB')
-            print(F'Y train {Y_df.shape}, Memory usage: {Y_df.memory_usage().sum()/1024**2:02f} MB')
-            X_df, Y_df = apply_bootstrap(X_df, Y_df, cur_pollutant, station, boostrap_threshold, forecasted_hours, boostrap_factor)
-            print(F'X train bootstrapped {X_df.shape}, Memory usage: {X_df.memory_usage().sum()/1024**2:02f} MB')
-            print(F'Y train bootstrapped {Y_df.shape}, Memory usage: {Y_df.memory_usage().sum()/1024**2:02f} MB')
-
-
-        #%% Replace all the nan values with another value
+        #  Replace all the nan values with another value
         replace_value = 0
         print(f"Replacing nan values with {replace_value}...")
         X_df.fillna(replace_value, inplace=True)
-        X_df.fillna(replace_value, inplace=True)
+        Y_df.fillna(replace_value, inplace=True)
+
+        # Transform to float
+        X_df = X_df.astype(np.float32)
+        Y_df = Y_df.astype(np.float32)
+
+        # Lets just test with the first two column
+        # X_df = X_df.iloc[:,0:2]
+        # Y_df = Y_df.iloc[:,0:2]
+
+        self.input_size = X_df.shape[1]
+        self.output_size = Y_df.shape[1]
 
         self.data = X_df
         self.targets = Y_df
@@ -139,6 +143,27 @@ class AirPollutionDataset(Dataset):
     def __getitem__(self, idx):
         '''Returns the data for the given index '''
         return self.data.iloc[idx].values, self.targets.iloc[idx].values
+
+    def get_train_idxs(self):
+        return self.train_idxs
+
+    def get_val_idxs(self):
+        return self.val_idxs
+    
+    def get_test_idxs(self):
+        return self.test_idxs
+
+    def get_input_size(self):
+        return self.input_size
+
+    def get_output_size(self):
+        return self.output_size
+
+    def get_x_names(self):
+        return self.x_cols_names
+
+    def get_y_names(self):
+        return self.y_cols_names
 
 ## ----- DataLoader --------
 if __name__ == "__main__":

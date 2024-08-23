@@ -119,6 +119,7 @@ def process_files(user_config, all_path_names, all_file_names, all_dates, all_fi
             continue
 
 def runParallel(year):
+    print(F"Processing year {year}")
     user_config = getPreprocWRFParams()
 
     input_folder = user_config[PreprocParams.input_folder_new]
@@ -146,10 +147,13 @@ if __name__== '__main__':
     input_folder_old = user_config[PreprocParams.input_folder_old]
 
     # The max range is from 1980 to present
-    start_year = 2023
+    start_year = 2024
     end_year = 2025
 
+    # Run sequential
+    runParallel(2024)
+
     # Run this process in parallel splitting separating by years
-    NUMBER_PROC = 10
-    p = Pool(NUMBER_PROC)
-    p.map(runParallel, range(start_year, end_year))
+    # NUMBER_PROC = 10
+    # p = Pool(NUMBER_PROC)
+    # p.map(runParallel, range(start_year, end_year))

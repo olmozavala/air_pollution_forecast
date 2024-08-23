@@ -93,14 +93,22 @@ def merge_by_year(config):
         for idx, cur_time_col in enumerate(time_cols):
             alldata_by_year[cur_time_col] = time_values[idx]
 
-        print("\tSaving merged database ...")
         output_file_name = F"{current_year}_AllStations.csv"
+        print(f"\tSaving merged database in file {output_file_name}...")
         cur_output_folder = join(output_folder, f"{num_quadrants}")
         if not(os.path.exists(cur_output_folder)):
             os.makedirs(cur_output_folder)
         alldata_by_year.to_csv(join(cur_output_folder, output_file_name),
                                 float_format="%.2f",
                                 index_label=constants.index_label.value)
+        # TODO this is patch, I assume in later versions of pandas won't be needed
+        # Remove last line of the file we just created join(cur_output_folder, output_file_name)
+        with open(join(cur_output_folder, output_file_name), 'r+') as file:
+            lines = file.readlines()
+            file.seek(0)
+            file.writelines(lines[:-1])
+            file.truncate()
+
         print("\tDone!")
 
 
@@ -152,8 +160,8 @@ def merge_by_station(config):
 
                 x_data_merged_df = DataFrame(x_data_meteo, columns=all_meteo_columns, index=datetimes_str)
                 x_data_merged_df[cur_pollutant] = data_cur_station[cur_pollutant]
-                print("\tSaving merged database ...")
                 output_file_name = F"{cur_pollutant}_{cur_station}.csv"
+                print(f"\tSaving merged database in {output_file_name}...")
                 x_data_merged_df.to_csv(join(output_folder,output_file_name),
                                         float_format="%.2f",
                                         index_label=constants.index_label.value)
