@@ -1,3 +1,48 @@
-__pycache__
-.idea
+# Ignorar cachés de Python
+__pycache__/
+*.py[cod]
+
+# Ignorar archivos temporales y de configuración de IDEs
 *.swp
+.idea/
+.vscode/
+
+# Ignorar archivos de entorno virtual
+venv/
+env/
+*.env
+
+# Ignorar notebooks experimentales (si no los quieres en `main`)
+#notebooks_dev/
+#*.ipynb
+
+# Ignorar datasets crudos y archivos generados en runtime
+data/raw/
+data/tmp/
+*.csv
+*.hdf5
+*.json
+*.xlsx
+
+# Ignorar modelos entrenados y checkpoints
+models/
+checkpoints/
+*.h5
+*.pth
+*.ckpt
+
+# Ignorar archivos de logs y salidas de debugging
+*.log
+logs/
+output/
+
+# Ignorar archivos de depuración
+*.bak
+*.tmp
+.DS_Store
+
+# Archivos grandes o temporales
+*.tar.gz
+*.zip
+*.tar
+*.rar
