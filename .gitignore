@@ -13,8 +13,8 @@ env/
 *.env
 
 # Ignorar notebooks experimentales (si no los quieres en `main`)
-#notebooks_dev/
-#*.ipynb
+notebooks_dev/
+
 
 # Ignorar datasets crudos y archivos generados en runtime
 data/raw/
